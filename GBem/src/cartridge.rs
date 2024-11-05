@@ -74,7 +74,7 @@ impl Memory for Mbc1 {
         match a {
             0x0000..=0x3FFF => self.rom[a as usize],
             0x4000..=0x7FFF => {
-                let i = self.rom_bank() * 0x2000 + a as usize - 0xa000;
+                let i = self.rom_bank() * 0x2000 + a as usize - 0xA000;
                 self.ram[i]
             }
             0xA000..=0xBFFF => {
@@ -90,7 +90,33 @@ impl Memory for Mbc1 {
     }
 
     fn set(&mut self, a: u16, v: u8) {
-        // Work here
+        match a {
+            0xA000..=0xBFFF => {
+                if self.ram_enabled {
+                    let i = self.ram_bank() * 0x2000 + a as usize - 0xA000;
+                    self.ram[i] = v;
+                }
+            }
+            0x0000..=0x1FFF => self.ram_enabled = v & 0x0F == 0x0A,
+            0x2000..=0x3FFF => {
+                let n = v & 0x1F;
+                let n = match n {
+                    0x00 => 0x01,
+                    _ => n,
+                };
+                self.bank = (self.bank & 0x60) | n;
+            }
+            0x4000..=0x5FFF => {
+                let n = v & 0x03;
+                self.bank - self.bank & 0x9F | (n << 5)
+            }
+            0x6000..=0x7FFF => match v {
+                0x00 => self.bank_mode = BankMode::Rom,
+                0x01 => self.bank_mode = BankMode::Ram,
+                n => panic!("Invalid Cart type", n),
+            }
+            _ => {}
+        }
     }
 }
 
@@ -112,6 +138,46 @@ impl Stable for Mbc2 {
             return;
         }
         File::create(self.sav_path.clone()).and_then(|mut f| f.write_all(&self.ram)).unwrap()
+    }
+}
+impl Memory for Mbc2 {
+    fn get(&self, a: u16) -> u8 {
+        match a {
+            0x0000..=0x3FFF => self.rom[a as usize],
+            0x4000..=0x7FFF => {
+                let i = self.rom_bank * 0x4000 + a as usize - 0x4000;
+                self.rom[i]
+            }
+            0xA000..=0xA1FF => {
+                if self.ram_enable {
+                    self.ram[(a - 0xA000) as usize]
+                } else {
+                    0x00
+                }
+            }
+            _ => 0x00,
+        }
+    }
+
+    fn set(&mut self, a: u16, v: u8) {
+        let v = v & 0x0F;
+        match a {
+            0xA000..=0xA1FF => {
+                if self.ram_enable {
+                    self.ram[(a - 0xA000) as usize] = v
+                }
+            }
+            0x0000..=0x1FFF => {
+                if a & 0x0100 == 0 {
+                    self.ram_enable = v == 0x0A;
+                }
+            }
+            0x2000..=0x3FFF => {
+                if a & 0x0100 != 0 {
+                    self.rom_bank = v as usize;
+                }
+            }
+        }
     }
 }
 struct RTC {
@@ -160,7 +226,30 @@ impl Stable for RTC {
         File::create(self.sav_path.clone()).and_then(|mut f| f.write_all(&self.zero.to_be_bytes())).unwrap()
     }
 }
-todo!("memory");
+impl Memory for RTC {
+    fn get(&self, a: u16) -> u8 {
+        match a {
+            0x08 => self.second,
+            0x09 => self.minute,
+            0x0A => self.hour,
+            0x0B => self.dl,
+            0x0C => self.dh,
+            _ => panic!("No entry"),
+        }
+    }
+    
+    fn set(&mut self, a: u16, v: u8) {
+        match a {
+            0x08 => self.second = v,
+            0x09 => self.minute = v,
+            0x0A => self.hour = v,
+            0x0B => self.dl = v,
+            0x0C => self.dh = v,
+            _ => panic!("No Entry"),
+        }
+    }
+}
+
 
 struct Mbc3 {
     rom: Vec<u8>,
@@ -182,6 +271,67 @@ impl Stable for Mbc3 {
             return;
         }
         File::create(self.sav_path.clone()).and_then(|mut f| f.write_all(&self.ram)).unwrap()
+    }
+}
+
+impl Memory for Mbc3 {
+    fn get(&self, a: u16) -> u8 {
+        match a {
+            0x0000..=0x3FFF => self.rom[a as usize],
+            0x4000..=0x7FFF => {
+                let i = self.rom_bank * 0x4000 + a as usize - 0x4000;
+                self.rom[i]
+            }
+            0xA000..=0xBFFF => {
+                if self.ram_enable {
+                    if self.ram_bank <= 0x03 {
+                        let i = self.ram_bank * 0x2000 + a as usize - 0xA000;
+                        self.ram[i]
+                    } else {
+                        self.rtc.get(self.ram_bank as u16)
+                    }
+                } else {
+                    0x00
+                }
+            }
+            _ => 0x00,
+        }
+    }
+
+    fn set(&mut self, a: u16, v: u8) {
+        match a {
+            0xA000..=0xBFFF => {
+                if self.ram_enable {
+                    if self.ram_bank <= 0x03 {
+                        let i = self.ram_bank * 0x2000  + a as usize - 0xA000;
+                        self.ram[i] = v;
+                    } else {
+                        self.rtc.set(self.ram_bank as u16, v);
+                    }
+                }
+            }
+            0x0000..=0x1FFF => {
+                self.ram_enable = v & 0x0F == 0x0A;
+            }
+            0x2000..=0x3FFF => {
+                let n = (v & 0x7F) as usize;
+                let n = match n {
+                    0x00 => 0x01,
+                    _ => n,
+                };
+                self.rom_bank = n;
+            }
+            0x4000..=0x5FFF => {
+                let n = (v & 0x0F) as usize;
+                self.ram_bank = n;
+            }
+            0x6000..=0x7FFF => {
+                if v & 0x01 != 0 {
+                    self.rtc.tic();
+                }
+            }
+            _ => {}
+        }
     }
 }
 
@@ -207,6 +357,45 @@ impl Stable for Mbc5 {
     }
 }
 
+impl Memory for Mbc5 {
+    fn get(&self, a: u16) -> u8 {
+        match a {
+            0x0000..=0x3FFF => self.rom[a as usize],
+            0x4000..=0x7FFF => {
+                let i = self.rom_bank * 0x4000 + a as usize - 0x4000;
+                self.rom[i]
+            }
+            0xA000..=0xBFFF => {
+                if self.ram_enable {
+                    let i = self.ram_bank * 0x2000 + a as usize - 0xA000;
+                    self.ram[i]
+                } else {
+                    0x00
+                }
+            }
+            _ => 0x00,
+        }
+    }
+
+    fn set(&mut self, a: u16, v: u8) {
+        match a {
+            0xA000..=0xBFFF => {
+                if self.ram_enable {
+                    let i = self.ram_bank * 0x2000 + a as usize - 0xA000;
+                    self.ram[i] = v;
+                }
+            }
+            0x0000..=0x1FFF => {
+                self.ram_enable = v & 0x0F == 0x0A;
+            }
+            0x2000..=0x2FFF => self.rom_bank = (self.rom_bank & 0x100) | (v as usize),
+            0x3000..=0x3FFF => self.rom_bank = (self.rom_bank & 0x0FF) | (((v & 0x01) as usize) << 8),
+            0x4000..=0x5FFF => self.ram_bank = (v & 0x0F) as usize,
+            _ => {}
+        }
+    }
+}
+
 struct HuC1 {
     cart: Mbc1,
 } impl HuC1 {
@@ -217,6 +406,16 @@ struct HuC1 {
 impl Stable for HuC1 {
     fn sav(&self) {
         self.cart.sav();
+    }
+}
+
+impl Memory for HuC1 {
+    fn get(&self, a: u16) -> u8 {
+        self.cart.get(a)
+    }
+
+    fn set(&mut self, a: u16, v: u8) {
+        self.cart.set(a, v);
     }
 }
 
