@@ -4,7 +4,6 @@ use std::io::{Write, Read};
 use std::path::{Path, PathBuf};
 use super::mem::Memory;
 
-todo!("add memory");
 
 pub trait Stable {
     fn sav(&self) {
