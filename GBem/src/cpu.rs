@@ -3,6 +3,7 @@ use super::mem::Memory;
 use super::registers::Flags::{CarryFlag, SubtractionFlag, ZeroFlag, HalfCarryFlag};
 use super::registers::Register;
 use std::cell::RefCell;
+use std::intrinsics::wrapping_sub;
 use std::rc::Rc;
 
 pub const CLOCK_FREQUENCY: u32 = 4_194_304;
@@ -179,25 +180,260 @@ impl Cpu {
 
     fn alu_add_sp(&mut self) {
         let a = self.reg.stack_pointer;
-        let b = i16::from(self.imm() as i8) as u16
+        let b = i16::from(self.imm() as i8) as u16;
+        self.reg.set_flag(CarryFlag, (a & 0x00FF) + (b & 0x00FF) > 0x00FF);
+        self.reg.set_flag(HalfCarryFlag, (a & 0x00FF) (b & 0x00FF) > 0x00FF);
+        self.reg.set_flag(SubtractionFlag, false);
+        self.reg.set_flag(ZeroFlag, false);
+        self.reg.stack_pointer = a.wrapping_add(b);
     }
 
-    fn alu_add(&mut self, value: u8) {
-        
+    fn alu_swap(&mut self, value: u8) -> u8 {
+        self.reg.set_flag(CarryFlag, false);
+        self.reg.set_flag(HalfCarryFlag, false);
+        self.reg.set_flag(SubtractionFlag, false);
+        self.reg.set_flag(ZeroFlag, value == 0x00);
+        (value >> 4) | (value << 4)
     }
 
-    fn alu_add(&mut self, value: u8) {
-        
+    fn alu_daa(&mut self) {
+        let mut a = self.reg.a_reg;
+        let mut adjust = if self.reg.get_flag(CarryFlag) { 0x60 } else {0x00};
+        if self.reg.get_flag(HalfCarryFlag) {
+            adjust |= 0x06;
+        };
+        if !self.reg.get_flag(SubtractionFlag) {
+            if a & 0x0F > 0x09 {
+                adjust |= 0x06;
+            };
+            if a > 0x99 {
+                adjust |= 0x60;
+            };
+            a = a.wrapping_add(adjust);
+        } else {
+            a = a.wrapping_sub(adjust);
+        }
+        self.reg.set_flag(CarryFlag, adjust >= 0x60);
+        self.reg.set_flag(HalfCarryFlag, false);
+        self.reg.set_flag(ZeroFlag, a == 0x00);
+        self.reg.a_reg = a;
     }
 
-    fn alu_add(&mut self, value: u8) {
-        
+    fn alu_cpl(&mut self) {
+        self.reg.a_reg = !self.reg.a_reg;
+        self.reg.set_flag(HalfCarryFlag, true);
+        self.reg.set_flag(SubtractionFlag, true);
     }
 
-    fn alu_add(&mut self, value: u8) {
-        
+    fn alu_ccf(&mut self) {
+        let v = !self.reg.get_flag(CarryFlag);
+        self.reg.set_flag(CarryFlag, v);
+        self.reg.set_flag(HalfCarryFlag, false);
+        self.reg.set_flag(SubtractionFlag, false);
     }
 
-    
+    fn alu_scf(&mut self) {
+        self.reg.set_flag(CarryFlag, true);
+        self.reg.set_flag(HalfCarryFlag, false);
+        self.reg.set_flag(SubtractionFlag, false);
+    }
 
+    fn alu_rlc(&mut self, value: u8) -> u8 {
+        let c = (value & 0x80) >> 7 ==0x01;
+        let r = (value << 1) | u8::from(c);
+        self.reg.set_flag(CarryFlag, c);
+        self.reg.set_flag(HalfCarryFlag, false);
+        self.reg.set_flag(SubtractionFlag, false);
+        self.reg.set_flag(ZeroFlag, r == 0x00);
+        r
+    }
+
+    fn alu_rl(&mut self, value: u8) -> u8 {
+        let c = (value & 0x80) >> 7 == 0x01;
+        let r = (value << 1) + u8::from(self.reg.get_flag(CarryFlag));
+        self.reg.set_flag(CarryFlag, c);
+        self.reg.set_flag(HalfCarryFlag, false);
+        self.reg.set_flag(SubtractionFlag, false);
+        self.reg.set_flag(ZeroFlag, r == 0x00);
+        r
+    }
+
+    fn alu_rrc(&mut self, value: u8) -> u8{
+        let c = value & 0x01 == 0x01;
+        let r = if c { 0x80 | (value >> 1)} else { a >> 1};
+        self.reg.set_flag(CarryFlag, c);
+        self.reg.set_flag(HalfCarryFlag, false);
+        self.reg.set_flag(SubtractionFlag, false);
+        self.reg.set_flag(ZeroFlag, r == 0x00);
+        r
+    }
+
+    fn alu_rr(&mut self, value: u8) -> u8 {
+        let c = value & 0x01 == 0x01;
+        let r = if self.reg.get_flag(CarryFlag) { 0x80 | (a >> 1)} else { a >> 1};
+        self.reg.set_flag(CarryFlag, c);
+        self.reg.set_flag(HalfCarryFlag, false);
+        self.reg.set_flag(SubtractionFlag, false);
+        self.reg.set_flag(ZeroFlag, r == 0x00);
+    }
+
+    fn alu_sla(&mut self, value: u8) -> u8 {
+        let c = (value & 0x80) >> 7 == 0x01;
+        let r = a << 1;
+        self.reg.set_flag(CarryFlag, c);
+        self.reg.set_flag(HalfCarryFlag, false);
+        self.reg.set_flag(SubtractionFlag, false);
+        self.reg.set_flag(ZeroFlag, r == 0x00);
+        r
+    }
+
+    fn alu_sra(&mut self, value: u8) -> u8 {
+        let c = value & 0x01 == 0x01;
+        let r = (value >> 1) | (value & 0x80);
+        self.reg.set_flag(CarryFlag, c);
+        self.reg.set_flag(HalfCarryFlag, false);
+        self.reg.set_flag(SubtractionFlag, false);
+        self.reg.set_flag(ZeroFlag, r == 0x00);
+        r
+    }
+
+    fn alu_srl(&mut self, value: u8) -> u8 {
+        let c = value & 0x01 == 0x01;
+        let r = a >> 1;
+        self.reg.set_flag(CarryFlag, c);
+        self.reg.set_flag(HalfCarryFlag, false);
+        self.reg.set_flag(SubtractionFlag, false);
+        self.reg.set_flag(ZeroFlag, r == 0x00);
+        r
+    }
+
+    fn alu_bit(&mut self, value: u8, bit: u8) {
+        let r = value & (1 << bit) == 0x00;
+        self.reg.set_flag(HalfCarryFlag, true);
+        self.reg.set_flag(SubtractionFlag, false);
+        self.reg.set_flag(ZeroFlag, r);
+    }
+
+    fn alu_set(&mut self, value: u8, bit: u8) -> u8 {
+        value || (1 << bit)
+    }
+
+    fn alu_res(&mut self, value: u8, bit: u8) -> u8 {
+        value & !(1 << bit)
+    }
+
+    fn alu_jr(&mut self, value: u8) {
+        let n = value as i8;
+        self.reg.program_counter = ((u32::from(self.reg.program_counter) as i32) + i32::from(value)) as u16;
+    }
+}
+
+impl Cpu {
+    pub fn power_up(term: Term, mem: Rc<RefCell<dyn Memory>>) -> Self {
+        Self { reg: Register::power_up(term), mem, halted: false, ei: true }
+    }
+    fn hi(&mut self) -> u32 {
+        if !self.halted && !self.ei {
+            return 0;
+        }
+        let intf = self.mem.borrow().get(0xFF0F);
+        let inte = self.mem.borrow().get(0xFFFF);
+        let ii = intf & inte;
+        if ii == 0x00 {
+            return 0;
+        }
+        self.halted = false;
+        if !self.ei {
+            return 0;
+        }
+        self.ei = false;
+
+        let n = ii.trailing_zeros();
+        let intf = intf & !(1 << n);
+        self.mem.borrow_mut().set(0xFF0F, intf);
+
+        self.stack_add(self.reg.program_counter);
+        self.reg.program_counter = 0x0040 | ((n as u16) << 3);
+        4
+    }
+    fn ex(&mut self) -> u32 {
+        let opcode = self.imm();
+        let mut cbcode: u8 = 0;
+        match opcode {
+            //LD r8, n8
+            0x06 => self.reg.b_reg = self.imm(),
+            0x0E => self.reg.c_reg = self.imm(),
+            0x16 => self.reg.d_reg = self.imm(),
+            0x1E => self.reg.e_reg = self.imm(),
+            0x26 => self.reg.h_reg = self.imm(),
+            0x2E => self.reg.l_reg = self.imm(),
+            0x36 => {
+                let hl = self.reg.parse_hl();
+                let imm = self.imm();
+                self.mem.borrow_mut().set(hl, imm);
+            }
+            0x3E => self.reg.a_reg = self.imm(),
+
+            //LD r16, A
+            0x02 => self.mem.borrow_mut().set(self.reg.parse_bc(), self.reg.a_reg),
+            0x12 => self.mem.borrow_mut().set(self.reg.parse_de(), self.reg.a_reg),
+
+            //LD A, r16
+            0x0A => self.reg.a_reg = self.mem.borrow().get(self.reg.parse_bc()),
+            0x1A => self.reg.a_reg = self.mem.borrow().get(self.reg.parse_de()),
+
+            //LD r16+, A
+            0x22 => {
+                let a = self.reg.parse_hl();
+                self.mem.borrow().set(a, self.reg.a_reg);
+                self.reg.set_hl(a + 1);
+            }
+
+            //LD r16-, A
+            0x32 => {
+                let a = self.reg.parse_hl();
+                self.mem.borrow().set(a, self.reg.a_reg);
+                self.reg.set_hl(a - 1);
+            }
+
+            //LD A, r16+
+            0x2A => {
+                let a = self.reg.parse_hl();
+                self.reg.a_reg = self.mem.borrow().get(a);
+                self.reg.set_hl(a + 1);
+            }
+
+            //LD A, r16-
+            0x3A => {
+                let a = self.reg.parse_hl();
+                self.reg.a_reg = self.mem.borrow().get(a);
+                self.reg.set_hl(a - 1);
+            }
+            
+            //LD r8, r8
+            0x40 => {/* b_reg = b_reg */}
+            0x50 => self.reg.d_reg = self.reg.b_reg,
+            0x60 => self.reg.h_reg = self.reg.b_reg,
+
+            0x41 => self.reg.b_reg = self.reg.c_reg,
+            0x51 => self.reg.d_reg = self.reg.c_reg,
+            0x61 => self.reg.h_reg = self.reg.c_reg,
+
+            0x42 => self.reg.b_reg = self.reg.d_reg,
+            0x52 => {/* d_reg = d_reg */}
+            0x62 => self.reg.h_reg = self.reg.d_reg,
+
+            0x43 => self.reg.b_reg = self.reg.e_reg,
+            0x53 => self.reg.d_reg = self.reg.e_reg,
+            0x63 => self.reg.h_reg = self.reg.e_reg,
+
+            0x44 => self.reg.b_reg = self.reg.h_reg,
+            0x54 => self.reg.d_reg = self.reg.h_reg,
+            0x64 => {/* h_reg = h_reg */}
+
+            0x45 => self.reg.b_reg = self.reg.l_reg,
+            0x55 => self.reg.d_reg = self.reg.l_reg,
+            0x65 => self.reg.h_reg = self.reg.l_reg,
+        }
+    }
 }
