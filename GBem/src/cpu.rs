@@ -3,7 +3,6 @@ use super::mem::Memory;
 use super::registers::Flags::{CarryFlag, SubtractionFlag, ZeroFlag, HalfCarryFlag};
 use super::registers::Register;
 use std::cell::RefCell;
-use std::intrinsics::wrapping_sub;
 use std::rc::Rc;
 
 pub const CLOCK_FREQUENCY: u32 = 4_194_304;
@@ -434,6 +433,138 @@ impl Cpu {
             0x45 => self.reg.b_reg = self.reg.l_reg,
             0x55 => self.reg.d_reg = self.reg.l_reg,
             0x65 => self.reg.h_reg = self.reg.l_reg,
+
+            0x47 => self.reg.b_reg = self.reg.a_reg,
+            0x57 => self.reg.d_reg = self.reg.a_reg,
+            0x67 => self.reg.h_reg = self.reg.a_reg,
+
+            0x48 => self.reg.c_reg = self.reg.b_reg,
+            0x58 => self.reg.e_reg = self.reg.b_reg,
+            0x68 => self.reg.l_reg = self.reg.b_reg,
+            0x78 => self.reg.a_reg = self.reg.b_reg,
+
+            0x49 => {/* c_reg = c_reg */}
+            0x59 => self.reg.e_reg = self.reg.c_reg,
+            0x69 => self.reg.l_reg = self.reg.c_reg,
+            0x79 => self.reg.a_reg = self.reg.c_reg,
+
+            0x4A => self.reg.c_reg = self.reg.d_reg,
+            0x5A => self.reg.e_reg = self.reg.d_reg,
+            0x6A => self.reg.l_reg = self.reg.d_reg,
+            0x7A => self.reg.a_reg = self.reg.d_reg,
+
+            0x4B => self.reg.c_reg = self.reg.e_reg,
+            0x5B => {/* e_reg = e_reg */}
+            0x6B => self.reg.l_reg = self.reg.e_reg,
+            0x7B => self.reg.a_reg = self.reg.e_reg,
+
+            0x4C => self.reg.c_reg = self.reg.h_reg,
+            0x5C => self.reg.e_reg = self.reg.h_reg,
+            0x6C => self.reg.l_reg = self.reg.h_reg,
+            0x7C => self.reg.a_reg = self.reg.h_reg,
+
+            0x4D => self.reg.c_reg = self.reg.l_reg,
+            0x5D => self.reg.e_reg = self.reg.l_reg,
+            0x6D => {/* l_reg = l_reg */}
+            0x7D => self.reg.a_reg = self.reg.l_reg,
+
+            0x4F => self.reg.c_reg = self.reg.a_reg,
+            0x5F => self.reg.e_reg = self.reg.a_reg,
+            0x6F => self.reg.l_reg = self.reg.a_reg,
+            0x7F => {/* a_reg = a_reg */}
+
+            //LD HL, r8
+            0x70 => self.mem.borrow_mut().set(self.reg.parse_hl(), self.reg.b_reg),
+            0x71 => self.mem.borrow_mut().set(self.reg.parse_hl(), self.reg.c_reg),
+            0x72 => self.mem.borrow_mut().set(self.reg.parse_hl(), self.reg.d_reg),
+            0x73 => self.mem.borrow_mut().set(self.reg.parse_hl(), self.reg.e_reg),
+            0x74 => self.mem.borrow_mut().set(self.reg.parse_hl(), self.reg.h_reg),
+            0x75 => self.mem.borrow_mut().set(self.reg.parse_hl(), self.reg.l_reg),
+            0x77 => self.mem.borrow_mut().set(self.reg.parse_hl(), self.reg.a_reg),
+
+            //LD r8, HL
+            0x46 => self.reg.b_reg = self.mem.borrow().get(self.reg.parse_hl()),
+            0x56 => self.reg.d_reg = self.mem.borrow().get(self.reg.parse_hl()),
+            0x66 => self.reg.h_reg = self.mem.borrow().get(self.reg.parse_hl()),
+            0x4E => self.reg.c_reg = self.mem.borrow().get(self.reg.parse_hl()),
+            0x5E => self.reg.e_reg = self.mem.borrow().get(self.reg.parse_hl()),
+            0x6E => self.reg.e_reg = self.mem.borrow().get(self.reg.parse_hl()),
+            0x7E => self.reg.a_reg = self.mem.borrow().get(self.reg.parse_hl()),
+
+            //HALT
+            0x76 => self.halted = true,
+
+            //LDH a8, A
+            0xEO => {
+                let a = 0xFF00 | u16::from(self.imm());
+                self.mem.borrow_mut().set(a, self.reg.a_reg);
+            }
+
+            //LDH A, a8
+            0xFO => {
+                let a = 0xFF00 | u16::from(self.imm());
+                self.reg.a_reg = self.mem.borrow().get(a);
+            }
+
+            //LD [C], A
+            0xE2 => self.mem.borrow_mut().set(0xFF00 | u16::from(self.reg.c_reg), self.reg.a_reg),
+
+            //LD A, [C]
+            0xF2 => self.reg.a_reg = self.mem.borrow().get(0xFF00 | u16::from(self.reg.c_reg)),
+
+            //LD [a16], A
+            0xEA => self.mem.borrow_mut().set(self.imm_word(), self.reg.a_reg),
+
+            //LD A, [a16]
+            0xFA => self.reg.a_reg = self.mem.borrow().get(self.imm_word()),
+
+            //NOP
+            0x00 => {/* No OPeration */}
+
+            //STOP
+            0x10 => {}
+
+            //LD r16, n16
+            0x01|0x11|0x21|0x31 => {
+                let n16 = self.imm_word();
+                match opcode {
+                    0x01 => self.reg.set_bc(n16),
+                    0x11 => self.reg.set_de(n16),
+                    0x21 => self.reg.set_hl(n16),
+                    0x31 => self.reg.stack_pointer = n16,
+                    _ => {}
+                }
+            }
+            //LD [a16], SP
+            0x08 => {
+                self.mem.borrow_mut().set_word(self.imm_word(), self.reg.stack_pointer);
+            }
+
+            //POP r16
+            0xC1 => self.reg.set_bc(self.stack_pop()),
+            0xD1 => self.reg.set_de(self.stack_pop()),
+            0xE1 => self.reg.set_hl(self.stack_pop()),
+            0xF1 => self.reg.set_af(self.stack_pop()),
+
+            //PUSH r16
+            0xC5 => self.stack_add(self.reg.parse_bc()),
+            0xD5 => self.stack_add(self.reg.parse_de()),
+            0xE5 => self.stack_add(self.reg.parse_hl()),
+            0xF5 => self.stack_add(self.reg.parse_af()),
+
+            //LD HL, SP+e8
+            0xF8 => {
+                let sp = self.reg.stack_pointer;
+                let e8 = i16::from(self.imm() as i8) as u16;
+                self.reg.set_flag(CarryFlag, (sp & 0x00FF) + (e8 & 0x00FF) > 0x00FF);
+                self.reg.set_flag(HalfCarryFlag, (sp + 0x000F) + (e8 & 0x000F) > 0x000F);
+                self.reg.set_flag(ZeroFlag, false);
+                self.reg.set_flag(SubtractionFlag, false);
+                self.reg.set_hl(sp.wrapping_add(e8));
+            }
+            
+            //LD SP, HL
+            0xF9 => self.reg.stack_pointer = self.reg.parse_hl(),
         }
     }
 }
