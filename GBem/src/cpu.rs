@@ -535,6 +535,7 @@ impl Cpu {
                     _ => {}
                 }
             }
+            
             //LD [a16], SP
             0x08 => {
                 self.mem.borrow_mut().set_word(self.imm_word(), self.reg.stack_pointer);
@@ -565,6 +566,177 @@ impl Cpu {
             
             //LD SP, HL
             0xF9 => self.reg.stack_pointer = self.reg.parse_hl(),
+
+            //ADD A, r8
+            0x80 => self.alu_add(self.reg.b_reg),
+            0x81 => self.alu_add(self.reg.c_reg),
+            0x82 => self.alu_add(self.reg.d_reg),
+            0x83 => self.alu_add(self.reg.e_reg),
+            0x84 => self.alu_add(self.reg.h_reg),
+            0x85 => self.alu_add(self.reg.l_reg),
+            0x86 => self.alu_dec(self.mem.borrow().get(self.reg.parse_hl())),
+            0x87 => self.alu_add(self.reg.a_reg),
+            0xC6 => self.alu_add(self.imm()),
+
+            //SUB A, r8
+            0x90 => self.alu_sub(self.reg.b_reg),
+            0x91 => self.alu_sub(self.reg.c_reg),
+            0x92 => self.alu_sub(self.reg.d_reg),
+            0x93 => self.alu_sub(self.reg.e_reg),
+            0x94 => self.alu_sub(self.reg.h_reg),
+            0x95 => self.alu_sub(self.reg.l_reg),
+            0x96 => self.alu_sub(self.mem.borrow().get(self.reg.parse_hl())),
+            0x97 => self.alu_sub(self.reg.a_reg),
+            0xD6 => self.alu_sub(self.imm()),
+
+            //AND A, r8
+            0xA0 => self.alu_and(self.reg.b_reg),
+            0xA1 => self.alu_and(self.reg.c_reg),
+            0xA2 => self.alu_and(self.reg.d_reg),
+            0xA3 => self.alu_and(self.reg.e_reg),
+            0xA4 => self.alu_and(self.reg.h_reg),
+            0xA5 => self.alu_and(self.reg.l_reg),
+            0xA6 => self.alu_and(self.mem.borrow().get(self.reg.parse_hl())),
+            0xA7 => self.alu_and(self.reg.a_reg),
+            0xE6 => self.alu_and(self.imm()),
+
+            //OR A, r8
+            0xB0 => self.alu_or(self.reg.b_reg),
+            0xB1 => self.alu_or(self.reg.c_reg),
+            0xB2 => self.alu_or(self.reg.d_reg),
+            0xB3 => self.alu_or(self.reg.e_reg),
+            0xB4 => self.alu_or(self.reg.h_reg),
+            0xB5 => self.alu_or(self.reg.l_reg),
+            0xB6 => self.alu_or(self.mem.borrow().get(self.reg.parse_hl())),
+            0xB7 => self.alu_or(self.reg.a_reg),
+            0xF6 => self.alu_or(self.imm()),
+
+            //ADC A, r8
+            0x88 => self.alu_adc(self.reg.b_reg),
+            0x89 => self.alu_adc(self.reg.c_reg),
+            0x8A => self.alu_adc(self.reg.d_reg),
+            0x8B => self.alu_adc(self.reg.e_reg),
+            0x8C => self.alu_adc(self.reg.h_reg),
+            0x8D => self.alu_adc(self.reg.l_reg),
+            0x8E => self.alu_adc(self.mem.borrow().get(self.reg.parse_hl())),
+            0x8F => self.alu_adc(self.reg.a_reg),
+            0xCE => self.alu_adc(self.imm()),
+
+            //SBC A, r8
+            0x98 => self.alu_sbc(self.reg.b_reg),
+            0x99 => self.alu_sbc(self.reg.c_reg),
+            0x9A => self.alu_sbc(self.reg.d_reg),
+            0x9B => self.alu_sbc(self.reg.e_reg),
+            0x9C => self.alu_sbc(self.reg.h_reg),
+            0x9D => self.alu_sbc(self.reg.l_reg),
+            0x9E => self.alu_sbc(self.mem.borrow().get(self.reg.parse_hl())),
+            0x9F => self.alu_sbc(self.reg.a_reg),
+            0xDE => self.alu_sbc(self.imm()),
+
+            //XOR A, r8
+            0xA8 => self.alu_xor(self.reg.b_reg),
+            0xA9 => self.alu_xor(self.reg.c_reg),
+            0xAA => self.alu_xor(self.reg.d_reg),
+            0xAB => self.alu_xor(self.reg.e_reg),
+            0xAC => self.alu_xor(self.reg.h_reg),
+            0xAD => self.alu_xor(self.reg.l_reg),
+            0xAE => self.alu_xor(self.mem.borrow().get(self.reg.parse_hl())),
+            0xAF => self.alu_xor(self.reg.a_reg),
+            0xEE => self.alu_xor(self.imm()),
+
+            //CP A, r8
+            0xB8 => self.alu_cp(self.reg.b_reg), 
+            0xB9 => self.alu_cp(self.reg.c_reg),
+            0xBA => self.alu_cp(self.reg.d_reg),
+            0xBB => self.alu_cp(self.reg.e_reg),
+            0xBC => self.alu_cp(self.reg.h_reg),
+            0xBD => self.alu_cp(self.reg.l_reg),
+            0xBE => self.alu_cp(self.mem.borrow().get(self.reg.parse_hl())),
+            0xBF => self.alu_cp(self.reg.a_reg),
+            0xFE => self.alu_cp(self.imm()),
+
+            //INC r8
+            0x04 => self.alu_inc(self.reg.b_reg),
+            0x14 => self.alu_inc(self.reg.d_reg),
+            0x24 => self.alu_inc(self.reg.h_reg),
+            0x34 => self.alu_inc(self.mem.borrow().get(self.reg.parse_hl())),
+            0x0C => self.alu_inc(self.reg.c_reg),
+            0x1C => self.alu_inc(self.reg.e_reg),
+            0x2C => self.alu_inc(self.reg.l_reg),
+            0x3C => self.alu_inc(self.reg.a_reg),
+
+            //DEC r8
+            0x05 => self.alu_dec(self.reg.b_reg),
+            0x15 => self.alu_dec(self.reg.d_reg),
+            0x25 => self.alu_dec(self.reg.h_reg),
+            0x35 => self.alu_dec(self.mem.borrow().get(self.reg.parse_hl())),
+            0x0D => self.alu_dec(self.reg.c_reg),
+            0x1D => self.alu_dec(self.reg.e_reg),
+            0x2D => self.alu_dec(self.reg.l_reg),
+            0x3D => self.alu_dec(self.reg.a_reg),
+
+            //INC r16
+            0x03 => self.reg.set_bc(self.reg.parse_bc().wrapping_add(1)),
+            0x13 => self.reg.set_de(self.reg.parse_de().wrapping_add(1)),
+            0x23 => self.reg.set_hl(self.reg.parse_hl().wrapping_add(1)),
+            0x33 => self.reg.program_counter += 1,
+
+            //DEC r16 
+            0x0B => self.reg.set_bc(self.reg.parse_bc().wrapping_sub(1)),
+            0x1B => self.reg.set_de(self.reg.parse_de().wrapping_sub(1)),
+            0x2B => self.reg.set_hl(self.reg.parse_hl().wrapping_sub(1)),
+            0x3B => self.reg.program_counter -= 1,
+
+            //ADD HL, r16
+            0x09 => self.alu_add_hl(self.reg.parse_bc()),
+            0x19 => self.alu_add_hl(self.reg.parse_de()),
+            0x29 => self.alu_add_hl(self.reg.parse_hl()),
+            0x39 => self.alu_add_hl(self.reg.stack_pointer),
+
+            //ADD SP, e8
+            0xE8 => self.alu_add_sp(),
+
+            //DI
+            0xF3 => self.ei = false,
+
+            //EI
+            0xFB => self.ei = false,
+
+            //RST
+            0xC7 => {
+                self.stack_add(self.reg.program_counter);
+                self.reg.program_counter = 0x00;
+            }
+            0xD7 => {
+                self.stack_add(self.reg.program_counter);
+                self.reg.program_counter = 0x10;
+            }
+            0xE7 => {
+                self.stack_add(self.reg.program_counter);
+                self.reg.program_counter = 0x20;
+            }
+            0xF7 => {
+                self.stack_add(self.reg.program_counter);
+                self.reg.program_counter = 0x30;
+            }
+            0xCF => {
+                self.stack_add(self.reg.program_counter);
+                self.reg.program_counter = 0x08;
+            }
+            0xDF => {
+                self.stack_add(self.reg.program_counter);
+                self.reg.program_counter = 0x18;
+            } 
+            0xEF => {
+                self.stack_add(self.reg.program_counter);
+                self.reg.program_counter = 0x28;
+            }
+            0xFF => {
+                self.stack_add(self.reg.program_counter);
+                self.reg.program_counter = 0x38;
+            }
+
+            //
         }
     }
 }
