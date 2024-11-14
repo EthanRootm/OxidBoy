@@ -238,7 +238,7 @@ impl Cpu {
     }
 
     fn alu_rlc(&mut self, value: u8) -> u8 {
-        let c = (value & 0x80) >> 7 ==0x01;
+        let c = (value & 0x80) >> 7 == 0x01;
         let r = (value << 1) | u8::from(c);
         self.reg.set_flag(CarryFlag, c);
         self.reg.set_flag(HalfCarryFlag, false);
@@ -817,6 +817,81 @@ impl Cpu {
                 self.stack_add(self.reg.program_counter);
                 self.reg.program_counter = 0x38;
             }
+
+            //JR IF
+            0x20 | 0x30 | 0x28 | 0x38 => {
+                let cond = match opcode {
+                    0x20 => !self.reg.get_flag(ZeroFlag),
+                    0x30 => !self.reg.get_flag(CarryFlag),
+                    0x28 => self.reg.get_flag(ZeroFlag),
+                    0x38 => self.reg.get_flag(CarryFlag),
+                    _ => panic!(""),
+                };
+                let n = self.imm();
+                if cond {
+                    self.alu_jr(n);
+                }
+            }
+
+            //JR e8
+            0x18 => {
+                let a = self.imm();
+                self.alu_jr(a);
+            }
+
+            //BIT Shifts
+            0x07 => {
+                self.reg.a_reg = self.alu_rlc(self.reg.a_reg);
+                self.reg.set_flag(ZeroFlag, false);
+            }
+            0x17 => {
+                self.reg.a_reg = self.alu_rl(self.reg.a_reg);
+                self.reg.set_flag(ZeroFlag, false);
+            }
+            0x0F => {
+                self.reg.a_reg = self.alu_rrc(self.reg.a_reg);
+                self.reg.set_flag(ZeroFlag, false);
+            }
+            0x1F => {
+                self.reg.a_reg = self.alu_rr(self.reg.a_reg);
+                self.reg.set_flag(ZeroFlag, false);
+            }
+
+            //DAA
+            0x27 => self.alu_daa(),
+
+            //SCF
+            0x37 => self.alu_scf(),
+
+            //CPL
+            0x2F => self.alu_cpl(),
+
+            //CCF
+            0x3F => self.alu_ccf(),
+
+            //RET If
+            0xC0 | 0xD0 | 0xC8 | 0xD8 => {
+                let cond = match opcode {
+                    0xC0 => !self.reg.get_flag(ZeroFlag),
+                    0xD0 => !self.reg.get_flag(CarryFlag),
+                    0xC8 => self.reg.get_flag(ZeroFlag),
+                    0xD8 => self.reg.get_flag(CarryFlag),
+                    _ => panic!(""),
+                };
+                if cond {
+                    self.reg.program_counter = self.stack_pop();
+                }
+            }
+            //RET
+            0xC9 => self.reg.program_counter = self.stack_pop(),
+
+            //RETI
+            0xD9 => {
+                self.reg.program_counter = self.stack_pop();
+                self.ei = true;
+            }
+
+            //
 
             
             _ => todo!()
