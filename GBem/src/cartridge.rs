@@ -17,7 +17,7 @@ enum BankMode {
 }
 
 struct RomOnly {
-    rom: Vec<>
+    rom: Vec<u8>
 } impl RomOnly {
     pub fn power_up(rom: Vec<u8>) -> Self {
         RomOnly {rom}
@@ -107,12 +107,12 @@ impl Memory for Mbc1 {
             }
             0x4000..=0x5FFF => {
                 let n = v & 0x03;
-                self.bank - self.bank & 0x9F | (n << 5)
+                self.bank = self.bank & 0x9F | (n << 5)
             }
             0x6000..=0x7FFF => match v {
                 0x00 => self.bank_mode = BankMode::Rom,
                 0x01 => self.bank_mode = BankMode::Ram,
-                n => panic!("Invalid Cart type", n),
+                n => panic!("Invalid Cart type {:?}", n),
             }
             _ => {}
         }
@@ -176,6 +176,7 @@ impl Memory for Mbc2 {
                     self.rom_bank = v as usize;
                 }
             }
+            _ => {}
         }
     }
 }
@@ -193,7 +194,7 @@ struct RTC {
             Ok(ok) => {
                 let mut b: [u8; 8] = Default::default() ;
                 b.copy_from_slice(&ok);
-                u64::from_be_bytes(b);
+                u64::from_be_bytes(b)
             }
             Err(_) => SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap().as_secs(),
         };
@@ -428,7 +429,7 @@ pub fn power_up(path: impl AsRef<Path>) -> Box<dyn Cartridge> {
     }
     let rom_maximum = rom_size(rom[0x0148]);
     if rom.len() > rom_maximum {
-        panic!("Rom is larger than maximum {:?}")
+        panic!("Rom is larger than maximum {:?}", rom_maximum)
     }
     let cart: Box<dyn Cartridge> = match rom[0x0147] {
         0x00 => Box::new(RomOnly::power_up(rom)),
@@ -438,7 +439,7 @@ pub fn power_up(path: impl AsRef<Path>) -> Box<dyn Cartridge> {
             Box::new(Mbc1::power_up(rom, vec![0; ram_maximum], ""))
         }
         0x03 => {
-            let ram_maximum = ram_size(0x0149);
+            let ram_maximum = ram_size(rom[0x0149]);
             let sav_path = path.as_ref().to_path_buf().with_extension("sav");
             let ram = ram_read(sav_path.clone(), ram_maximum);
             Box::new(Mbc1::power_up(rom, ram, sav_path))
@@ -467,28 +468,28 @@ pub fn power_up(path: impl AsRef<Path>) -> Box<dyn Cartridge> {
         }
         0x11 => Box::new(Mbc3::power_up(rom, vec![], "", "")),
         0x12 => {
-            let ram_maximum = ram_size(0x0149);
+            let ram_maximum = ram_size(rom[0x0149]);
             Box::new(Mbc3::power_up(rom, vec![0; ram_maximum], "", ""))
         }
         0x13 => {
-            let ram_maximum = ram_size(0x0149);
+            let ram_maximum = ram_size(rom[0x0149]);
             let sav_path = path.as_ref().to_path_buf().with_extension("sav");
             let ram = ram_read(sav_path.clone(), ram_maximum);
             Box::new(Mbc3::power_up(rom, ram, sav_path, ""))
         }
         0x19 => Box::new(Mbc5::power_up(rom, vec![], "")), 
         0x1A => {
-            let ram_maximum = ram_size(0x0149);
-            Box::new(Mbc5::power_up(rom, ram_maximum, ""))
+            let ram_maximum = ram_size(rom[0x0149]);
+            Box::new(Mbc5::power_up(rom, vec![0; ram_maximum], ""))
         }
         0x1B => {
-            let ram_maximum = ram_size(0x0149);
+            let ram_maximum = ram_size(rom[0x0149]);
             let sav_path = path.as_ref().to_path_buf().with_extension("sav");
             let ram = ram_read(sav_path.clone(), ram_maximum);
             Box::new(Mbc5::power_up(rom, ram, sav_path))
         }
         0xFF => {
-            let ram_maximum = ram_size(0x0149);
+            let ram_maximum = ram_size(rom[0x0149]);
             let sav_path = path.as_ref().to_path_buf().with_extension("sav");
             let ram = ram_read(sav_path.clone(), ram_maximum);
             Box::new(HuC1::power_up(rom, ram, sav_path))
@@ -573,7 +574,8 @@ fn cart_type(byte: u8) -> String {
         0xFC => "POCKET CAMERA",
         0xFD => "BANDAI TAMA5",
         0xFE => "HuC3",
-        0xFF => "HuC1+RAM+BATTERY"
+        0xFF => "HuC1+RAM+BATTERY",
+        n => panic!("Unsupported cartridge type 0x{:02x}", n),
     })
 }
 
@@ -607,7 +609,7 @@ pub trait Cartridge: Memory + Stable + Send {
         let ic = 0x0134;
         let oc = if self.get(0x0143) == 0x80{ 0x013e } else { 0x0143 };
         for i in ic..oc {
-            match Self.get(i) {
+            match self.get(i) {
                 0 => break,
                 v => buf.push((v as u8) as char),
             }

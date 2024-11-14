@@ -84,7 +84,7 @@ impl Flags {
     }
 
     fn inverse(self) -> u8 {
-        !self.og()
+        !self.orgin()
     }
 }
 
@@ -93,7 +93,7 @@ impl Register {
         (self.f_reg & flag as u8) != 0
     }
 
-    pub fn set_flag(&self, flag: Flags, v: bool) {
+    pub fn set_flag(&mut self, flag: Flags, v: bool) {
         if v {
             self.f_reg |= flag.orgin();
         } else {
@@ -122,7 +122,7 @@ impl Register {
         registers.h_reg = 0x01;
         registers.l_reg = 0x4D;
         registers.program_counter = 0x0100;
-        registers.stack_pointer = 0xFFFFE;
+        registers.stack_pointer = 0xFFFE;
         registers
     }
 }
