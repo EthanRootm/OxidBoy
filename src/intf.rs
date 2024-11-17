@@ -12,7 +12,7 @@ pub struct Intf {
     pub data: u8,
 }
 
-impl intf {
+impl Intf {
     pub fn power_up() -> Self {
         Self { data: 0x00 }
     }
