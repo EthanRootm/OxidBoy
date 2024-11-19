@@ -2,9 +2,8 @@ use super::terms::Term;
 use super::intf::{Flags, Intf};
 use super::mem::Memory;
 use std::cell::RefCell;
-use std::intrinsics::simd::simd_reduce_all;
 use std::rc::Rc;
-
+#[derive(PartialEq)]
 pub enum HdmaMode {
     Gdma,
     Hdma,
@@ -148,7 +147,7 @@ struct Attr {
 }
 
 impl From<u8> for Attr {
-    fn from(value: u8) -> Self {
+    fn from(u: u8) -> Self {
         Self 
         { 
             priority: u & (1 << 7) != 0,
@@ -167,7 +166,7 @@ pub const SCREEN_H: usize = 144;
 pub struct Gpu {
     pub data: [[[u8; 3]; SCREEN_W]; SCREEN_H],
     pub intf: Rc<RefCell<Intf>>,
-    pub term: terms,
+    pub term: Term,
     pub h_blank: bool,
     pub v_blank: bool,
 
@@ -290,7 +289,7 @@ impl Gpu {
             if d != self.dots {
                 self.ly = (self.ly + 1) % 154;
                 if self.stat.ly_interrupt && self.ly == self.lc {
-                    self.intf.borrow_mut().hi(Flag::LCDStat);
+                    self.intf.borrow_mut().hi(Flags::LCDStat);
                 }
             }
             if self.ly >= 144 {
@@ -299,9 +298,9 @@ impl Gpu {
                 }
                 self.stat.mode = 1;
                 self.v_blank = true;
-                self.intf.borrow_mut().hi(Flag::VBlank);
+                self.intf.borrow_mut().hi(Flags::Vblank);
                 if self.stat.m1_interrupt {
-                    self.intf.borrow_mut().hi(Flag::LCDStat);
+                    self.intf.borrow_mut().hi(Flags::LCDStat);
                 }
             }else if self.dots <= 80 {
                     if self.stat.mode == 2 {
@@ -368,6 +367,10 @@ impl Gpu {
 
                 let tile_y = if tile_attr.yflip { 7 - py % 8 } else { py % 8 };
                 let tile_y_data: [u8; 2] = if self.term == Term::GBC && tile_attr.bank {
+                    let a = self.get_ram1(tile_location + u16::from(tile_y * 2));
+                    let b = self.get_ram1(tile_location + u16::from(tile_y * 2) + 1);
+                    [a, b]
+                } else {
                     let a = self.get_ram0(tile_location + u16::from(tile_y * 2));
                     let b = self.get_ram0(tile_location + u16::from(tile_y * 2) + 1);
                     [a, b]
@@ -382,9 +385,9 @@ impl Gpu {
                 
 
                 if self.term == Term::GBC {
-                    let r = self.chgpd[tile_attr.palette_num_1][color][0];
-                    let g = self.chgpd[tile_attr.palette_num_1][color][1];
-                    let b = self.chgpd[tile_attr.palette_num_1][color][2];
+                    let r = self.cbgpd[tile_attr.palette_num_1][color][0];
+                    let g = self.cbgpd[tile_attr.palette_num_1][color][1];
+                    let b = self.cbgpd[tile_attr.palette_num_1][color][2];
                     self.set_rgb(x as usize, r, g, b);
                 } else {
                     let color = Self::get_gray_shaders(self.bgp, color) as u8;
@@ -528,7 +531,67 @@ impl Memory for Gpu {
 
     fn set(&mut self, a: u16, v: u8) {
     match a {
-        _ => todo!(),
-    }    
+        0x8000..=0x9FFF => self.ram[self.ram_bank * 0x2000 + a as usize - 0x8000] = v,
+        0xFE00..=0xFE9F => self.oam[a as usize - 0xFE00] = v,
+        0xFF40 => {
+            self.lcdc.data = v;
+            if !self.lcdc.bit7() {
+                self.dots = 0;
+                self.ly = 0;
+                self.stat.mode = 0;
+                self.data = [[[0xFFu8; 3]; SCREEN_W]; SCREEN_H];
+                self.v_blank = true;
+            }
+        }
+        0xFF41 => {
+            self.stat.ly_interrupt = v & 0x40 != 0x00;
+            self.stat.m2_interrupt = v & 0x20 != 0x00;
+            self.stat.m1_interrupt = v & 0x10 != 0x00;
+            self.stat.m0_interrupt = v & 0x08 != 0x00;
+        }
+        0xFF42 => self.sy = v,
+        0xFF43 => self.sx = v,
+        0xFF44 => {}
+        0xFF45 => self.lc = v,
+        0xFF47 => self.bgp = v,
+        0xFF48 => self.op0 = v,
+        0xFF49 => self.op1 = v,
+        0xFF4A => self.wy = v,
+        0xFF4B => self.wx = v,
+        0xFF4F => self.ram_bank = (v & 0x01) as usize,
+        0xFF68 => self.cbgpi.set(v),
+        0xFF69 => {
+            let r = self.cbgpi.i as usize >> 3;
+            let c = self.cbgpi.i as usize >> 1 & 0x03;
+            if self.cbgpi.i & 0x01 == 0x00 {
+                self.cbgpd[r][c][0] = v & 0x1F;
+                self.cbgpd[r][c][1] = (self.cbgpd[r][c][1] & 0x18) | (v >> 5);
+            } else {
+                self.cbgpd[r][c][1] = (self.cbgpd[r][c][1] & 0x07) | ((v & 0x03) << 3);
+                self.cbgpd[r][c][2] = (v >> 2) & 0x1F;
+            }
+            if self.cbgpi.auto_increment {
+                self.cbgpi.i += 0x01;
+                self.cbgpi.i &= 0x3F;
+            }
+        }
+        0xFF6A => self.cobpi.set(v),
+        0xFF6B => {
+            let r = self.cbgpi.i as usize >> 3;
+            let c = self.cbgpi.i as usize >> 1 & 0x03;
+            if self.cbgpi.i & 0x01 == 0x00 {
+                self.cbgpd[r][c][0] = v & 0x1F;
+                self.cbgpd[r][c][1] = (self.cbgpd[r][c][1] & 0x18) | (v >> 5);
+            } else {
+                self.cbgpd[r][c][1] = (self.cbgpd[r][c][1] & 0x07) | ((v & 0x03) << 3);
+                self.cbgpd[r][c][2] = (v >> 2) & 0x1F;
+            }
+            if self.cbgpi.auto_increment {
+                self.cbgpi.i += 0x01;
+                self.cbgpi.i &= 0x3F;
+            }
+        }
+        _ => panic!("")
+        } 
     }
 }

@@ -4,6 +4,7 @@ use super::registers::Flags::{CarryFlag, SubtractionFlag, ZeroFlag, HalfCarryFla
 use super::registers::Register;
 use std::cell::RefCell;
 use std::rc::Rc;
+use std::{thread, time};
 
 pub const CLOCK_FREQUENCY: u32 = 4_194_304;
 pub const STEP_TIME: u32 = 16;
@@ -1157,102 +1158,110 @@ impl Cpu {
                     0x7F => self.alu_bit(self.reg.a_reg, 7),
 
                     //RES u3, r8
-                    0x80 => self.alu_res(self.reg.b_reg, 0),
-                    0x81 => self.alu_res(self.reg.c_reg, 0),
-                    0x82 => self.alu_res(self.reg.d_reg, 0),
-                    0x83 => self.alu_res(self.reg.e_reg, 0),
-                    0x84 => self.alu_res(self.reg.h_reg, 0),
-                    0x85 => self.alu_res(self.reg.l_reg, 0),
+                    0x80 => self.reg.b_reg = self.alu_res(self.reg.b_reg, 0),
+                    0x81 => self.reg.c_reg = self.alu_res(self.reg.c_reg, 0),
+                    0x82 => self.reg.d_reg = self.alu_res(self.reg.d_reg, 0),
+                    0x83 => self.reg.e_reg = self.alu_res(self.reg.e_reg, 0),
+                    0x84 => self.reg.h_reg = self.alu_res(self.reg.h_reg, 0),
+                    0x85 => self.reg.l_reg = self.alu_res(self.reg.l_reg, 0),
                     0x86 => {
                         let a = self.reg.parse_hl();
                         let b = self.mem.borrow().get(a);
-                        self.alu_res(b, 0);
+                        let c = self.alu_res(b, 0);
+                        self.mem.borrow_mut().set(a, c);
                     }
-                    0x87 => self.alu_res(self.reg.a_reg, 0),
-                    0x88 => self.alu_res(self.reg.b_reg, 1),
-                    0x89 => self.alu_res(self.reg.c_reg, 1),
-                    0x8A => self.alu_res(self.reg.d_reg, 1),
-                    0x8B => self.alu_res(self.reg.e_reg, 1),
-                    0x8C => self.alu_res(self.reg.h_reg, 1),
-                    0x8D => self.alu_res(self.reg.l_reg, 1),
+                    0x87 => self.reg.a_reg = self.alu_res(self.reg.a_reg, 0),
+                    0x88 => self.reg.b_reg = self.alu_res(self.reg.b_reg, 1),
+                    0x89 => self.reg.c_reg = self.alu_res(self.reg.c_reg, 1),
+                    0x8A => self.reg.d_reg = self.alu_res(self.reg.d_reg, 1),
+                    0x8B => self.reg.e_reg = self.alu_res(self.reg.e_reg, 1),
+                    0x8C => self.reg.h_reg = self.alu_res(self.reg.h_reg, 1),
+                    0x8D => self.reg.l_reg = self.alu_res(self.reg.l_reg, 1),
                     0x8E => {
                         let a = self.reg.parse_hl();
                         let b = self.mem.borrow().get(a);
-                        self.alu_res(b, 1);
+                        let c = self.alu_res(b, 1);
+                        self.mem.borrow_mut().set(a, c);
                     }
-                    0x8F => self.alu_res(self.reg.a_reg, 1),
-                    0x90 => self.alu_res(self.reg.b_reg, 2),
-                    0x91 => self.alu_res(self.reg.c_reg, 2),
-                    0x92 => self.alu_res(self.reg.d_reg, 2),
-                    0x93 => self.alu_res(self.reg.e_reg, 2),
-                    0x94 => self.alu_res(self.reg.h_reg, 2),
-                    0x95 => self.alu_res(self.reg.l_reg, 2),
+                    0x8F => self.reg.a_reg = self.alu_res(self.reg.a_reg, 1),
+                    0x90 => self.reg.b_reg = self.alu_res(self.reg.b_reg, 2),
+                    0x91 => self.reg.c_reg = self.alu_res(self.reg.c_reg, 2),
+                    0x92 => self.reg.d_reg = self.alu_res(self.reg.d_reg, 2),
+                    0x93 => self.reg.e_reg = self.alu_res(self.reg.e_reg, 2),
+                    0x94 => self.reg.h_reg = self.alu_res(self.reg.h_reg, 2),
+                    0x95 => self.reg.l_reg = self.alu_res(self.reg.l_reg, 2),
                     0x96 => {
                         let a = self.reg.parse_hl();
                         let b = self.mem.borrow().get(a);
-                        self.alu_res(b, 2);
+                        let c = self.alu_res(b, 2);
+                        self.mem.borrow_mut().set(a, c);
                     }
-                    0x97 => self.alu_res(self.reg.a_reg, 2),
-                    0x98 => self.alu_res(self.reg.b_reg, 3),
-                    0x99 => self.alu_res(self.reg.c_reg, 3),
-                    0x9A => self.alu_res(self.reg.d_reg, 3),
-                    0x9B => self.alu_res(self.reg.e_reg, 3),
-                    0x9C => self.alu_res(self.reg.h_reg, 3),
-                    0x9D => self.alu_res(self.reg.l_reg, 3),
+                    0x97 => self.reg.a_reg = self.alu_res(self.reg.a_reg, 2),
+                    0x98 => self.reg.b_reg = self.alu_res(self.reg.b_reg, 3),
+                    0x99 => self.reg.c_reg = self.alu_res(self.reg.c_reg, 3),
+                    0x9A => self.reg.d_reg = self.alu_res(self.reg.d_reg, 3),
+                    0x9B => self.reg.e_reg = self.alu_res(self.reg.e_reg, 3),
+                    0x9C => self.reg.h_reg = self.alu_res(self.reg.h_reg, 3),
+                    0x9D => self.reg.l_reg = self.alu_res(self.reg.l_reg, 3),
                     0x9E => {
                         let a = self.reg.parse_hl();
                         let b = self.mem.borrow().get(a);
-                        self.alu_res(b, 3);
+                        let c = self.alu_res(b, 3);
+                        self.mem.borrow_mut().set(a, c);
                     }
-                    0x9F => self.alu_res(self.reg.a_reg, 3),
-                    0xA0 => self.alu_res(self.reg.b_reg, 4),
-                    0xA1 => self.alu_res(self.reg.c_reg, 4),
-                    0xA2 => self.alu_res(self.reg.d_reg, 4),
-                    0xA3 => self.alu_res(self.reg.e_reg, 4),
-                    0xA4 => self.alu_res(self.reg.h_reg, 4),
-                    0xA5 => self.alu_res(self.reg.l_reg, 4),
+                    0x9F => self.reg.a_reg =self.alu_res(self.reg.a_reg, 3),
+                    0xA0 => self.reg.b_reg = self.alu_res(self.reg.b_reg, 4),
+                    0xA1 => self.reg.c_reg = self.alu_res(self.reg.c_reg, 4),
+                    0xA2 => self.reg.d_reg = self.alu_res(self.reg.d_reg, 4),
+                    0xA3 => self.reg.e_reg = self.alu_res(self.reg.e_reg, 4),
+                    0xA4 => self.reg.h_reg = self.alu_res(self.reg.h_reg, 4),
+                    0xA5 => self.reg.l_reg = self.alu_res(self.reg.l_reg, 4),
                     0xA6 => {
                         let a = self.reg.parse_hl();
                         let b = self.mem.borrow().get(a);
-                        self.alu_res(b, 4);
+                        let c = self.alu_res(b, 4);
+                        self.mem.borrow_mut().set(a, c);
                     }
-                    0xA7 => self.alu_res(self.reg.a_reg, 4),
-                    0xA8 => self.alu_res(self.reg.b_reg, 5),
-                    0xA9 => self.alu_res(self.reg.c_reg, 5),
-                    0xAA => self.alu_res(self.reg.d_reg, 5),
-                    0xAB => self.alu_res(self.reg.e_reg, 5),
-                    0xAC => self.alu_res(self.reg.h_reg, 5),
-                    0xAD => self.alu_res(self.reg.l_reg, 5),
+                    0xA7 => self.reg.a_reg = self.alu_res(self.reg.a_reg, 4),
+                    0xA8 => self.reg.b_reg = self.alu_res(self.reg.b_reg, 5),
+                    0xA9 => self.reg.c_reg = self.alu_res(self.reg.c_reg, 5),
+                    0xAA => self.reg.d_reg = self.alu_res(self.reg.d_reg, 5),
+                    0xAB => self.reg.e_reg = self.alu_res(self.reg.e_reg, 5),
+                    0xAC => self.reg.h_reg = self.alu_res(self.reg.h_reg, 5),
+                    0xAD => self.reg.l_reg = self.alu_res(self.reg.l_reg, 5),
                     0xAE => {
                         let a = self.reg.parse_hl();
                         let b = self.mem.borrow().get(a);
-                        self.alu_res(b, 5);
+                        let c = self.alu_res(b, 5);
+                        self.mem.borrow_mut().set(a, c);
                     }
-                    0xAF => self.alu_res(self.reg.a_reg, 5),
-                    0xB0 => self.alu_res(self.reg.b_reg, 6),
-                    0xB1 => self.alu_res(self.reg.c_reg, 6),
-                    0xB2 => self.alu_res(self.reg.d_reg, 6),
-                    0xB3 => self.alu_res(self.reg.e_reg, 6),
-                    0xB4 => self.alu_res(self.reg.h_reg, 6),
-                    0xB5 => self.alu_res(self.reg.l_reg, 6),
+                    0xAF => self.reg.a_reg = self.alu_res(self.reg.a_reg, 5),
+                    0xB0 => self.reg.b_reg = self.alu_res(self.reg.b_reg, 6),
+                    0xB1 => self.reg.c_reg = self.alu_res(self.reg.c_reg, 6),
+                    0xB2 => self.reg.d_reg = self.alu_res(self.reg.d_reg, 6),
+                    0xB3 => self.reg.e_reg = self.alu_res(self.reg.e_reg, 6),
+                    0xB4 => self.reg.h_reg = self.alu_res(self.reg.h_reg, 6),
+                    0xB5 => self.reg.l_reg = self.alu_res(self.reg.l_reg, 6),
                     0xB6 => {
                         let a = self.reg.parse_hl();
                         let b = self.mem.borrow().get(a);
-                        self.alu_res(b, 6);
+                        let c = self.alu_res(b, 6);
+                        self.mem.borrow_mut().set(a, c);
                     }
-                    0xB7 => self.alu_res(self.reg.a_reg, 6),
-                    0xB8 => self.alu_res(self.reg.b_reg, 7),
-                    0xB9 => self.alu_res(self.reg.c_reg, 7),
-                    0xBA => self.alu_res(self.reg.d_reg, 7),
-                    0xBB => self.alu_res(self.reg.e_reg, 7),
-                    0xBC => self.alu_res(self.reg.h_reg, 7),
-                    0xBD => self.alu_res(self.reg.l_reg, 7),
+                    0xB7 => self.reg.a_reg = self.alu_res(self.reg.a_reg, 6),
+                    0xB8 => self.reg.b_reg = self.alu_res(self.reg.b_reg, 7),
+                    0xB9 => self.reg.c_reg = self.alu_res(self.reg.c_reg, 7),
+                    0xBA => self.reg.d_reg = self.alu_res(self.reg.d_reg, 7),
+                    0xBB => self.reg.e_reg = self.alu_res(self.reg.e_reg, 7),
+                    0xBC => self.reg.h_reg = self.alu_res(self.reg.h_reg, 7),
+                    0xBD => self.reg.l_reg = self.alu_res(self.reg.l_reg, 7),
                     0xBE => {
                         let a = self.reg.parse_hl();
                         let b = self.mem.borrow().get(a);
-                        self.alu_res(b, 7);
+                        let c = self.alu_res(b, 7);
+                        self.mem.borrow_mut().set(a, c);
                     }
-                    0xBF => self.alu_res(self.reg.a_reg, 7),
+                    0xBF => self.reg.a_reg = self.alu_res(self.reg.a_reg, 7),
 
                     //SET u3, r8
                     0xC0 => self.reg.b_reg = self.alu_set(self.reg.b_reg, 0),
@@ -1359,8 +1368,6 @@ impl Cpu {
                         self.mem.borrow_mut().set(a, c);
                     }
                     0xFF => self.reg.a_reg = self.alu_set(self.reg.a_reg, 7),
-
-                    _ => todo!(),
                 }
             }
             
@@ -1375,12 +1382,92 @@ impl Cpu {
             0xED => panic!("Mem adress not used"),
             0xFC => panic!("Mem adress not used"),
             0xFD => panic!("Mem adress not used"),
-        }
-        let ecycle = 0;
+        };
+
+        let ecycle = match opcode {
+            0x20 | 0x30 => {
+                if self.reg.get_flag(ZeroFlag) { 0x00 } else { 0x01 }
+            }    
+            0x28 | 0x38 => {
+                if self.reg.get_flag(ZeroFlag) { 0x01 } else { 0x00 }
+            }
+            0xC0 | 0xD0 => {
+                if self.reg.get_flag(ZeroFlag) { 0x00 } else { 0x03 }
+            }
+            0xC8 | 0xCC | 0xD8 | 0xDC => {
+                if self.reg.get_flag(ZeroFlag) { 0x03 } else { 0x00 }
+            }
+            0xC2 | 0xD2 => {
+                if self.reg.get_flag(ZeroFlag) { 0x00 } else { 0x01 }
+            }
+            0xCA | 0xDA => {
+                if self.reg.get_flag(ZeroFlag) { 0x01 } else { 0x00 }
+            }
+            0xC4 | 0xD4 => {
+                if self.reg.get_flag(ZeroFlag) { 0x00 } else { 0x03 }
+            }
+            _ => 0x00,
+        };
+
         if opcode == 0xCB {
             CB_CYCLES[cbcode as usize]
         } else {
             OP_CYCLES[opcode as usize] + ecycle
         }
+    }
+    pub fn next(&mut self) -> u32 {
+        let mac = {
+            let c = self.hi();
+            if c != 0 {
+                c
+            } else if self.halted {
+                OP_CYCLES[0]
+            } else {
+                self.ex()
+            }
+        };
+        mac * 4
+    }
+}
+
+pub struct RTC {
+    pub cpu: Cpu,
+    step_cycles: u32,
+    step_zero: time::Instant,
+    step_flip: bool,
+}
+
+impl RTC {
+    pub fn power_up(term: Term, mem: Rc<RefCell<dyn Memory>>) -> Self {
+        let cpu = Cpu::power_up(term, mem);
+        Self { cpu, step_cycles: 0, step_zero: time::Instant::now(), step_flip: false }
+    }
+    pub fn next(&mut self) -> u32 {
+        if self.step_cycles > STEP_CYCLES {
+            self.step_flip = true;
+            self.step_cycles -= STEP_CYCLES;
+            let now = time::Instant::now();
+            let d = now.duration_since(self.step_zero);
+            let s = u64::from(STEP_TIME.saturating_add(d.as_millis() as u32));
+            dbg!("Sleep {:?}", s);
+            thread::sleep(time::Duration::from_millis(s));
+            self.step_zero = self.step_zero.checked_add(time::Duration::from_millis(u64::from(STEP_TIME))).unwrap();
+
+
+            if now.checked_duration_since(self.step_zero).is_some() {
+                self.step_zero = now;
+            }
+        }
+        let cycles = self.cpu.next();
+        self.step_cycles += cycles;
+        cycles
+    }
+    
+    pub fn flip(&mut self) -> bool {
+        let r = self.step_flip;
+        if r {
+            self.step_flip = false;
+        }
+        r
     }
 }
