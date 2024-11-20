@@ -3,14 +3,14 @@ use std::cell::RefCell;
 use  std::rc::Rc;
 
 pub struct Serial {
-    intf: Rc<RefCell<Intf>>,
+    _intf: Rc<RefCell<Intf>>,
     data: u8,
     control: u8,
 }
 
 impl Serial {
     pub fn power_up(intf: Rc<RefCell<Intf>>) -> Self {
-        Self { intf: intf, data: 0x00, control: 0x00 }
+        Self { _intf: intf, data: 0x00, control: 0x00 }
     }
 
     pub fn get(&self, a: u16) -> u8 {
