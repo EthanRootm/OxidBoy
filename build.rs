@@ -8,7 +8,7 @@ fn main(){
     println!("cargo:rustc-link-lib=SDL2");
 
     let out_dir = env::var("OUT_DIR").unwrap();
-    let target_dir = PathBuf::from(out_dir).ancestors().nth(3).unwrap().join("target").join(env::var("PROFILE").unwrap());
+    let target_dir = PathBuf::from(out_dir).ancestors().nth(4).unwrap().join(env::var("PROFILE").unwrap());
 
     fs::create_dir_all(&target_dir).unwrap();
     println!("target dir {}", target_dir.display());
