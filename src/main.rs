@@ -1,14 +1,30 @@
+use std::fs;
+
 use GBem::gpu::{SCREEN_H,SCREEN_W};
 use GBem::motherboard::MotherBoard;
+use argparse::{ArgumentParser, Store};
 
 use sdl2::{event::Event, keyboard::Keycode, pixels::Color, rect::Rect};
 
 pub fn main() -> Result<(), String> {
     let sdl_context = sdl2::init()?;
     let video_subsystem = sdl_context.video()?;
+    let mut rom = "world".to_string();
+    {
+    let mut arg = ArgumentParser::new();
+    arg.refer(&mut rom).add_argument("rom", argparse::Store, "Gameboy file to emulate");
+    arg.parse_args_or_exit();
+    }
+    print!("{}", rom);
 
+    let mbrd = MotherBoard::power_up(rom);
+    let name = mbrd.mmu.borrow().cartridge.title();
+
+    let mut title = String::from("Game Boy Emulator - ");
+    title.push_str(&name);
+    
     let window = video_subsystem
-        .window("rust-sdl2 example", 800, 600)
+        .window(title.as_str(), SCREEN_W as u32, SCREEN_H as u32)
         .opengl()
         .build()
         .map_err(|e| e.to_string())?;
@@ -28,17 +44,6 @@ pub fn main() -> Result<(), String> {
                 _ => {}
             }
         }
-
-        // Set the background
-        canvas.set_draw_color(Color::RGB(255, 200, 0));
-        canvas.clear();
-
-        // Draw a red rectangle
-        canvas.set_draw_color(Color::RGB(255, 0, 0));
-        canvas.fill_rect(Rect::new(100, 100, 600, 400))?;
-
-        // Show it on the screen
-        canvas.present();
     }
 
     Ok(())
