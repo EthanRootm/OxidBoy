@@ -420,7 +420,7 @@ impl Memory for HuC1 {
 }
 
 pub fn power_up(path: impl AsRef<Path>) -> Box<dyn Cartridge> {
-    dbg!("Loading cartridge from {:?}", path.as_ref());
+    dbg!("Loading cartridge from {}", path.as_ref());
     let mut file = File::open(path.as_ref()).unwrap();
     let mut rom = Vec::new();
     file.read_to_end(&mut rom).unwrap();
@@ -429,7 +429,7 @@ pub fn power_up(path: impl AsRef<Path>) -> Box<dyn Cartridge> {
     }
     let rom_maximum = rom_size(rom[0x0148]);
     if rom.len() > rom_maximum {
-        panic!("Rom is larger than maximum {:?}", rom_maximum)
+        panic!("Rom is larger than maximum {}", rom_maximum)
     }
     let cart: Box<dyn Cartridge> = match rom[0x0147] {
         0x00 => Box::new(RomOnly::power_up(rom)),
@@ -541,7 +541,7 @@ fn rom_size(byte: u8) -> usize{
         0x52 => bank * 72,
         0x53 => bank * 80,
         0x54 => bank * 96,
-        a => panic!("Rom size 0x{:?} is not supported", a)
+        a => panic!("Rom size 0x{} is not supported", a)
     }
 }
 
