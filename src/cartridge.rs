@@ -73,8 +73,8 @@ impl Memory for Mbc1 {
         match a {
             0x0000..=0x3FFF => self.rom[a as usize],
             0x4000..=0x7FFF => {
-                let i = self.rom_bank() * 0x2000 + a as usize - 0xA000;
-                self.ram[i]
+                let i = self.rom_bank() * 0x2000 + a as usize - 0x4000;
+                self.rom[i]
             }
             0xA000..=0xBFFF => {
                 if self.ram_enabled {
@@ -420,7 +420,7 @@ impl Memory for HuC1 {
 }
 
 pub fn power_up(path: impl AsRef<Path>) -> Box<dyn Cartridge> {
-    dbg!("Loading cartridge from {}", path.as_ref());
+    dbg!(path.as_ref());
     let mut file = File::open(path.as_ref()).unwrap();
     let mut rom = Vec::new();
     file.read_to_end(&mut rom).unwrap();
@@ -496,8 +496,8 @@ pub fn power_up(path: impl AsRef<Path>) -> Box<dyn Cartridge> {
         }
         n => panic!("Unsupported cartridge type : 0x{:02x}", n),
     };
-    dbg!("Cartridge name is {}", cart.title());
-    dbg!("Cartridge type is {}", cart_type(cart.get(0x0147)));
+    dbg!(cart.title());
+    dbg!(cart_type(cart.get(0x0147)));
     ensure_logo(cart.as_ref());
     ensure_header_checksum(cart.as_ref());
     cart
@@ -587,7 +587,7 @@ const NINTENDO_LOGO: [u8; 48] = [
 
 fn ensure_logo(cart: &dyn Cartridge) {
     for i in 0..48 {
-        if cart.get(0x0104 + 1 as u16) != NINTENDO_LOGO[i as usize] {
+        if cart.get(0x0104 + i as u16) != NINTENDO_LOGO[i as usize] {
             panic!("Nintendo logo is incorrect");
         }
     }

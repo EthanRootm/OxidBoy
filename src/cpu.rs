@@ -1370,7 +1370,6 @@ impl Cpu {
                     0xFF => self.reg.a_reg = self.alu_set(self.reg.a_reg, 7),
                 }
             }
-            
             0xD3 => panic!("Mem adress not used"),
             0xE3 => panic!("Mem adress not used"),
             0xE4 => panic!("Mem adress not used"),
@@ -1448,8 +1447,8 @@ impl RTC {
             self.step_cycles -= STEP_CYCLES;
             let now = time::Instant::now();
             let d = now.duration_since(self.step_zero);
-            let s = u64::from(STEP_TIME.saturating_add(d.as_millis() as u32));
-            dbg!("Sleep {:?}", s);
+            let s = u64::from(STEP_TIME.saturating_sub(d.as_millis() as u32));
+            dbg!(s);
             thread::sleep(time::Duration::from_millis(s));
             self.step_zero = self.step_zero.checked_add(time::Duration::from_millis(u64::from(STEP_TIME))).unwrap();
 
