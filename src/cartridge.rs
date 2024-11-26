@@ -6,9 +6,7 @@ use super::mem::Memory;
 
 
 pub trait Stable {
-    fn sav(&self) {
-        
-    }
+    fn sav(&self);
 }
 
 enum BankMode {
@@ -73,7 +71,7 @@ impl Memory for Mbc1 {
         match a {
             0x0000..=0x3FFF => self.rom[a as usize],
             0x4000..=0x7FFF => {
-                let i = self.rom_bank() * 0x2000 + a as usize - 0x4000;
+                let i = self.rom_bank() * 0x4000 + a as usize - 0x4000;
                 self.rom[i]
             }
             0xA000..=0xBFFF => {
@@ -266,7 +264,7 @@ struct Mbc3 {
 }
 impl Stable for Mbc3 {
     fn sav(&self) {
-        dbg!("Ram is being persisted");
+        println!("Ram is being persisted");
         if self.sav_path.to_str().unwrap().is_empty() {
             return;
         }

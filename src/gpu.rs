@@ -3,7 +3,7 @@ use super::intf::{Flags, Intf};
 use super::mem::Memory;
 use std::cell::RefCell;
 use std::rc::Rc;
-#[derive(PartialEq)]
+#[derive(PartialEq, Eq)]
 pub enum HdmaMode {
     Gdma,
     Hdma,
@@ -17,14 +17,14 @@ pub struct Hdma{
 }
 impl Hdma {
     pub fn power_up() -> Self {
-        Self { src: 0x0000, dst: 0x8000, active: false, mode:HdmaMode::Gdma, remain: 0x00 }
+        Self { src: 0x0000, dst: 0x8000, active: false, mode: HdmaMode::Gdma, remain: 0x00 }
     }
 }
 impl Memory for Hdma {
     fn get(&self, a: u16) -> u8 {
         match a {
             0xFF51 => (self.src >> 8) as u8,
-            0xFF52 =>  self.src as u8,
+            0xFF52 => self.src as u8,
             0xFF53 => (self.dst >> 8) as u8,
             0xFF54 => self.dst as u8,
             0xFF55 => self.remain | if self.active { 0x00 } else { 0x80 },
@@ -204,7 +204,7 @@ pub struct Gpu {
 }
 
 impl Gpu {
-    pub fn power_up(term : Term, intf: Rc<RefCell<Intf>>) -> Self {
+    pub fn power_up(term: Term, intf: Rc<RefCell<Intf>>) -> Self {
         Self { 
             data: [[[0xFFu8; 3]; SCREEN_W]; SCREEN_H],
             intf,
@@ -302,7 +302,7 @@ impl Gpu {
                 if self.stat.m1_interrupt {
                     self.intf.borrow_mut().hi(Flags::LCDStat);
                 }
-            }else if self.dots <= 80 {
+            } else if self.dots <= 80 {
                     if self.stat.mode == 2 {
                         continue;
                     }
@@ -340,7 +340,7 @@ impl Gpu {
             let ty = (u16::from(py) >> 3) & 31;
 
             for x in 0..SCREEN_W {
-                let px = if show_window && x as u8 >= wx { x as u8 - wx } else {self.sy.wrapping_add(self.ly) };
+                let px = if show_window && x as u8 >= wx { x as u8 - wx } else {self.sx.wrapping_add(x as u8) };
                 let tx = (u16::from(px) >> 3) & 31; 
 
                 let bg_base = if show_window && x as u8 >= wx {
@@ -380,6 +380,7 @@ impl Gpu {
                 let color_l = if tile_y_data[0] & (0x80 >> tile_x) != 0 { 1 } else { 0 };
                 let color_h = if tile_y_data[1] & (0x80 >> tile_x) != 0 { 2 } else { 0 };
                 let color = color_h | color_l;
+                
 
                 self.prio[x] = (tile_attr.priority, color);
                 
@@ -401,7 +402,7 @@ impl Gpu {
             for i in 0..40 {
                 let sprite_addr = 0xFE00 + (i as u16) * 4;
                 let py = self.get(sprite_addr).wrapping_sub(16);
-                let px = self.get(sprite_addr).wrapping_add(8);
+                let px = self.get(sprite_addr + 1).wrapping_sub(8);
                 let tile_number = self.get(sprite_addr + 2) & if self.lcdc.bit2() { 0xFE } else { 0xFF };
                 let tile_attr = Attr::from(self.get(sprite_addr + 3));
 
@@ -445,7 +446,7 @@ impl Gpu {
 
                     let prio = self.prio[px.wrapping_add(x) as usize];
                     let skip = if self.term == Term::GBC && !self.lcdc.bit0() {
-                        prio.1 == 1
+                        prio.1 == 0
                     } else if prio.0 {
                         prio.1 != 0
                     } else {
