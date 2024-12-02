@@ -3,7 +3,7 @@ use super::cartridge::{self, Cartridge};
 use super::terms::Term;
 use super::gpu::{Gpu, Hdma, HdmaMode};
 use super::intf::Intf;
-//use super::joypad::Joypad;
+use super::joypad::Joypad;
 use super::linkcable::Serial;
 use super::mem::Memory;
 use super::timer::Timer;
@@ -21,6 +21,7 @@ pub struct Mmunit {
     pub cartridge: Box<dyn Cartridge>,
     pub gpu: Gpu,
     pub serial: Serial,
+    pub joypad: Joypad,
     pub shift: bool,
     pub speed: Speed,
     pub term: Term,
@@ -45,6 +46,7 @@ impl Mmunit {
             cartridge: cart,
             gpu: Gpu::power_up(term, intf.clone()),
             serial: Serial::power_up(intf.clone()),
+            joypad: Joypad::power_up(intf.clone()),
             shift: false,
             speed: Speed::Normal,
             term,

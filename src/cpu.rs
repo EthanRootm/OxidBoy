@@ -1448,7 +1448,6 @@ impl RTC {
             let now = time::Instant::now();
             let d = now.duration_since(self.step_zero);
             let s = u64::from(STEP_TIME.saturating_sub(d.as_millis() as u32));
-            dbg!(s);
             thread::sleep(time::Duration::from_millis(s));
             self.step_zero = self.step_zero.checked_add(time::Duration::from_millis(u64::from(STEP_TIME))).unwrap();
 
