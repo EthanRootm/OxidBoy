@@ -4,6 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-argparse = "0.2.2"
+argparse = "0.2"
+cpal = "0.15"
 minifb = "0.25"
-
+blip_buf = "0.1"

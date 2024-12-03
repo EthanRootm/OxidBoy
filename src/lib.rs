@@ -11,3 +11,4 @@ pub mod linkcable;
 pub mod timer;
 pub mod clock;
 pub mod joypad;
+pub mod apu;
