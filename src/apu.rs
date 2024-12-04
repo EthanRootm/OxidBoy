@@ -356,7 +356,362 @@ impl Memory for ChannelSquare {
 
     fn set(&mut self, a: u16, v: u8) {
         match a {
-            
+            0xFF10 | 0xFF15 => self.reg.borrow_mut().nrx0 = v,
+            0xFF11 | 0xFF16 => {
+                self.reg.borrow_mut().nrx1 = v;
+                self.lc.n = self.reg.borrow().get_length_load();
+            }
+            0xFF12 | 0xFF17 => self.reg.borrow_mut().nrx2 = v,
+            0xFF13 | 0xFF18 => {
+                self.reg.borrow_mut().nrx3 = v;
+                self.timer.period = period(self.reg.clone());
+            }
+            0xFF14 | 0xFF19 => {
+                self.reg.borrow_mut().nrx4 = v;
+                self.timer.period = period(self.reg.clone());
+                if self.reg.borrow().get_trigger() {
+                    self.lc.reload();
+                    self.ve.reload();
+                    if self.reg.borrow().channel == Channel::Square1 {
+                        self.fs.reload();
+                    }
+                }
+            }
+            _ => unreachable!()
         }
     }
+}
+
+struct ChannelWave {
+    reg: Rc<RefCell<Register>>,
+    timer: Clock,
+    lc: LengthCounter,
+    blip: Blip,
+    waveram: [u8; 16],
+    waveidx: usize,
+}
+
+impl ChannelWave {
+    fn power_up(blip: BlipBuf) -> ChannelWave {
+        let reg = Rc::new(RefCell::new(Register::power_up(Channel::Wave)));
+        ChannelWave { reg: reg.clone(), timer: Clock::power_up(8192), lc: LengthCounter::power_up(reg.clone()), blip: Blip::power_up(blip), waveram: [0x00; 16], waveidx: 0x00 }
+    }
+
+    fn next(&mut self, cycles: u32) {
+        let s = match self.reg.borrow().get_volume_code() {
+            0 => 4,
+            1 => 0,
+            2 => 1,
+            3 => 2,
+            _ => unreachable!(),
+        };
+        for _ in 0..self.timer.next(cycles) {
+            let sample = if self.waveidx & 0x01 == 0x00 {
+                self.waveram[self.waveidx / 2] & 0x0F
+            } else {
+                self.waveram[self.waveidx / 2] >> 4
+            };
+            let amplitude = if !self.reg.borrow().get_trigger() || !self.reg.borrow().get_dac_power() {
+                0x00
+            } else {
+                i32::from(sample >> s)
+            };
+            self.blip.set(self.blip.from.wrapping_add(self.timer.period), amplitude);
+            self.waveidx = (self.waveidx + 1) % 32;
+        }
+    }
+}
+
+impl Memory for ChannelWave {
+    fn get(&self, a: u16) -> u8 {
+        match a {
+            0xFF1A => self.reg.borrow().nrx0,
+            0xFF1B => self.reg.borrow().nrx1,
+            0xFF1C => self.reg.borrow().nrx2,
+            0xFF1D => self.reg.borrow().nrx3,
+            0xFF1E => self.reg.borrow().nrx4,
+            0xFF30..=0xFF3F => self.waveram[a as usize - 0xFF30],
+            _ => unreachable!()
+        }    
+    }
+
+    fn set(&mut self, a: u16, v: u8) {
+        match a {
+            0xFF1A => self.reg.borrow_mut().nrx0 = v,
+            0xFF1B => {
+                self.reg.borrow_mut().nrx1 = v;
+                self.lc.n = self.reg.borrow().get_length_load();
+            }
+            0xFF1C => self.reg.borrow_mut().nrx2 = v,
+            0xFF1D => {
+                self.reg.borrow_mut().nrx3 = v;
+                self.timer.period = period(self.reg.clone());
+            }
+            0xFF1E => {
+                self.reg.borrow_mut().nrx4 = v;
+                self.timer.period = period(self.reg.clone());
+                if self.reg.borrow().get_trigger() {
+                    self.lc.reload();
+                    self.waveidx = 0x00;
+                }
+            }
+            0xFF30..=0xFF3F => self.waveram[a as usize - 0xFF30] = v,
+            _ => unreachable!(),
+        }
+    }
+}
+
+struct Lfsr {
+    reg: Rc<RefCell<Register>>,
+    n: u16,
+}
+
+impl Lfsr {
+    fn power_up(reg: Rc<RefCell<Register>>) -> Self {
+        Self { reg, n: 0x0001 }
+    }
+
+    fn next(&mut self) -> bool {
+        let s = if self.reg.borrow().get_width_mode() { 0x06 } else { 0x0E };
+        let src = self.n;
+        self.n <<= 1;
+        let bit = ((src >> s) ^ (self.n >>s)) & 0x0001;
+        self.n |= bit;
+        (src >> s) & 0x0001 != 0x0000
+    }
+
+    fn reload(&mut self) {
+        self.n = 0x0001
+    }
+}
+
+struct ChannelNoise {
+    reg: Rc<RefCell<Register>>,
+    timer: Clock,
+    lc: LengthCounter,
+    ve: VolumeEnvelope,
+    lfsr: Lfsr,
+    blip: Blip,
+}
+
+impl ChannelNoise {
+    fn power_up(blip: BlipBuf) -> ChannelNoise {
+        let reg = Rc::new(RefCell::new(Register::power_up(Channel::Noise)));
+        ChannelNoise { reg: reg.clone(), timer: Clock::power_up(4096), lc: LengthCounter::power_up(reg.clone()), 
+        ve: VolumeEnvelope::power_up(reg.clone()), lfsr: Lfsr::power_up(reg.clone()), blip: Blip::power_up(blip) }
+    }
+
+    fn next(&mut self, cycles: u32) {
+        for _ in 0..self.timer.next(cycles) {
+            let amplitude = if !self.reg.borrow().get_trigger() || self.ve.volume == 0 {
+                0x00
+            } else if self.lfsr.next() {
+                i32::from(self.ve.volume)
+            } else {
+                i32::from(self.ve.volume) * -1
+            };
+            self.blip.set(self.blip.from.wrapping_add(self.timer.period), amplitude);
+        }
+    }
+}
+
+impl Memory for ChannelNoise {
+    fn get(&self, a: u16) -> u8 {
+        match a {
+            0xFF1F => self.reg.borrow().nrx0,
+            0xFF20 => self.reg.borrow().nrx1,
+            0xFF21 => self.reg.borrow().nrx2,
+            0xFF22 => self.reg.borrow().nrx3,
+            0xFF23 => self.reg.borrow().nrx4,
+            _ => unreachable!(),
+        }
+    }
+
+    fn set(&mut self, a: u16, v: u8) {
+        match a {
+            0xFF1F => self.reg.borrow_mut().nrx0 = v,
+            0xFF20 => {
+                self.reg.borrow_mut().nrx1 = v;
+                self.lc.n = self.reg.borrow().get_length_load();
+            }
+            0xFF21 => self.reg.borrow_mut().nrx2 = v,
+            0xFF22 => {
+                self.reg.borrow_mut().nrx3 = v;
+                self.timer.period = period(self.reg.clone());
+            }
+            0xFF23 => {
+                self.reg.borrow_mut().nrx4 = v;
+                if self.reg.borrow().get_trigger() {
+                    self.lc.reload();
+                    self.ve.reload();
+                    self.lfsr.reload();
+                }
+            }
+            _ => unreachable!(),
+        }
+    }
+}
+
+pub struct Apu {
+    pub buffer: Arc<Mutex<Vec<(f32, f32)>>>,
+    reg: Register,
+    timer: Clock,
+    fs: FrameSequencer,
+    channel1: ChannelSquare,
+    channel2: ChannelSquare,
+    channel3: ChannelWave,
+    channel4: ChannelNoise,
+    sample_rate: u32,
+}
+
+impl Apu {
+    pub fn power_up(sample: u32) -> Self {
+        let blipbuf1 = create_blipbuf(sample);
+        let blipbuf2 = create_blipbuf(sample);
+        let blipbuf3 = create_blipbuf(sample);
+        let blipbuf4 = create_blipbuf(sample);
+        Self { buffer: Arc::new(Mutex::new(Vec::new())), reg: Register::power_up(Channel::Mixer), timer: Clock::power_up(cpu::CLOCK_FREQUENCY / 512), 
+        fs: FrameSequencer::power_up(), channel1: ChannelSquare::power_up(blipbuf1, Channel::Square1),
+        channel2: ChannelSquare::power_up(blipbuf2, Channel::Square2), 
+        channel3: ChannelWave::power_up(blipbuf3), channel4: ChannelNoise::power_up(blipbuf4), sample_rate: sample }
+    }
+
+    fn play(&mut self, l: &[f32], r: &[f32]) {
+        assert_eq!(l.len(), r.len());
+        let mut buffer = self.buffer.lock().unwrap();
+        for (l, r) in l.iter().zip(r) {
+            if buffer.len() > self.sample_rate as usize {
+                return;
+            }
+            buffer.push((*l, *r));
+        }
+    }
+
+    pub fn next(&mut self, cycles: u32) {
+        if !self.reg.get_power() {
+            return;
+        }
+
+        for _ in 0..self.timer.next(cycles) {
+            self.channel1.next(self.timer.period);
+            self.channel2.next(self.timer.period);
+            self.channel3.next(self.timer.period);
+            self.channel4.next(self.timer.period);
+
+            let step = self.fs.next();
+            if step == 0 || step == 2 || step == 4 || step == 6 {
+                self.channel1.lc.next();
+                self.channel2.lc.next();
+                self.channel3.lc.next();
+                self.channel4.lc.next();
+            }
+            if step == 7 {
+                self.channel1.ve.next();
+                self.channel2.ve.next();
+                self.channel4.ve.next();
+            }
+            if step == 2 || step == 6 {
+                self.channel1.fs.next();
+                self.channel1.timer.period = period(self.channel1.reg.clone());
+            }
+            self.channel1.blip.data.end_frame(self.timer.period);
+            self.channel2.blip.data.end_frame(self.timer.period);
+            self.channel3.blip.data.end_frame(self.timer.period);
+            self.channel4.blip.data.end_frame(self.timer.period);
+            
+            self.channel1.blip.from = self.channel1.blip.from.wrapping_sub(self.timer.period);
+            self.channel2.blip.from = self.channel2.blip.from.wrapping_sub(self.timer.period);
+            self.channel3.blip.from = self.channel3.blip.from.wrapping_sub(self.timer.period);
+            self.channel4.blip.from = self.channel4.blip.from.wrapping_sub(self.timer.period);
+            self.mix();
+        }
+    }
+
+    fn mix(&mut self) {
+        let sc1 = self.channel1.blip.data.samples_avail();
+        let sc2 = self.channel2.blip.data.samples_avail();
+        let sc3 = self.channel3.blip.data.samples_avail();
+        let sc4 = self.channel4.blip.data.samples_avail();
+        assert_eq!(sc1, sc2);
+        assert_eq!(sc2, sc3);
+        assert_eq!(sc3, sc4);
+
+        let sample_count = sc1 as usize;
+        let mut sum = 0;
+
+        let l_volume = (f32::from(self.reg.get_l()) / 7.0) * (1.0 / 15.0) * 0.25;
+        let r_volume = (f32::from(self.reg.get_r()) / 7.0) * (1.0 / 15.0) * 0.25;
+
+        while sum < sample_count {
+            let buf_l = &mut [0f32; 2048];
+            let buf_r = &mut [0f32; 2048];
+            let buf = &mut [0i16; 2048];
+
+            let count1 = self.channel1.blip.data.read_samples(buf, false);
+            for (i, v) in buf[..count1].iter().enumerate() {
+                if self.reg.nrx1 & 0x01 == 0x01 {
+                    buf_l[i] += f32::from(*v) * l_volume;
+                }
+                if self.reg.nrx1 & 0x10 == 0x10 {
+                    buf_r[i] += f32::from(*v) * r_volume;
+                }
+            }
+
+            let count2 = self.channel2.blip.data.read_samples(buf, false);
+            for (i, v) in buf[..count2].iter().enumerate() {
+                if self.reg.nrx1 & 0x02 == 0x02 {
+                    buf_l[i] += f32::from(*v) * l_volume;
+                }
+                if self.reg.nrx1 & 0x20 == 0x20 {
+                    buf_r[i] += f32::from(*v) * r_volume;
+                }
+            }
+
+            let count3 = self.channel3.blip.data.read_samples(buf, false);
+            for (i, v) in buf[..count3].iter().enumerate() {
+                if self.reg.nrx1 & 0x04 == 0x04 {
+                    buf_l[i] += f32::from(*v) * l_volume;
+                }
+                if self.reg.nrx1 & 0x40 == 0x40 {
+                    buf_r[i] += f32::from(*v) * r_volume;
+                }
+            }
+
+            let count4 = self.channel4.blip.data.read_samples(buf, false);
+            for (i, v) in buf[..count4].iter().enumerate() {
+                if self.reg.nrx1 & 0x08 == 0x08 {
+                    buf_l[i] += f32::from(*v) * l_volume;
+                }
+                if self.reg.nrx1 & 0x80 == 0x80 {
+                    buf_r[i] += f32::from(*v) * r_volume;
+                }
+            }
+            assert_eq!(count1, count2);
+            assert_eq!(count2, count3);
+            assert_eq!(count3, count4);
+
+            self.play(&buf_l[..count1], &buf_r[..count1]);
+            sum += count1;
+        }
+    }
+}
+
+const RD_MASK: [u8; 48] = [
+    0x80, 0x3f, 0x00, 0xff, 0xbf, 0xff, 0x3f, 0x00, 0xff, 0xbf, 0x7f, 0xff, 0x9f, 0xff, 0xbf, 0xff, 0xff, 0x00, 0x00,
+    0xbf, 0x00, 0x00, 0x70, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+];
+
+impl Memory for Apu {
+    
+}
+
+
+
+fn create_blipbuf(sample: u32) -> BlipBuf {
+    
+}
+
+fn period(reg: Rc<RefCell<Register>>) -> u32 {
+    
 }
