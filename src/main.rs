@@ -2,17 +2,18 @@
 // Nintendo CO., LTD. © 1989 to 1999 by Nintendo CO., LTD.
 use GBem::gpu::{SCREEN_H, SCREEN_W};
 use GBem::motherboard::MotherBoard;
+use GBem::apu::Apu;
+use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
+use cpal::Sample;
 
 fn main() {
 
     let mut rom = "./Roms/Red.gb";
     /* 
-    let mut c_audio = false;
     let mut c_scale = 2;
     {
         let mut ap = argparse::ArgumentParser::new();
         ap.set_description("Gameboy emulator");
-        ap.refer(&mut c_audio).add_option(&["-a", "--enable-audio"], argparse::StoreTrue, "Enable audio");
         ap.refer(&mut c_scale).add_option(
             &["-x", "--scale-factor"],
             argparse::Store,
@@ -30,22 +31,17 @@ fn main() {
     option.resize = true;
     option.scale = minifb::Scale::X2;
     let mut window =
-        minifb::Window::new(format!("GameboyE - {}", rom_name).as_str(), SCREEN_W, SCREEN_H, option).unwrap();
+        minifb::Window::new(format!("Gameboy - {}", rom_name).as_str(), SCREEN_W, SCREEN_H, option).unwrap();
     let mut window_buffer = vec![0x00; SCREEN_W * SCREEN_H];
     window.update_with_buffer(window_buffer.as_slice(), SCREEN_W, SCREEN_H).unwrap();
 
     // Initialize audio related. It is necessary to ensure that the stream object remains alive.
-    /*
     let stream: cpal::Stream;
-    if c_audio {
         let host = cpal::default_host();
         let device = host.default_output_device().unwrap();
-        rog::debugln!("Open the audio player: {}", device.name().unwrap());
         let config = device.default_output_config().unwrap();
         let sample_format = config.sample_format();
-        rog::debugln!("Sample format: {}", sample_format);
         let config: cpal::StreamConfig = config.into();
-        rog::debugln!("Stream config: {:?}", config);
 
         let apu = Apu::power_up(config.sample_rate.0);
         let apu_data = apu.buffer.clone();
@@ -62,7 +58,7 @@ fn main() {
                             data[i * 2 + 1] = data_r;
                         }
                     },
-                    move |err| rog::debugln!("{}", err),
+                    move |err| println!("{}", err),
                     None,
                 )
                 .unwrap(),
@@ -76,16 +72,14 @@ fn main() {
                             data[i * 2 + 1] = data_r.to_sample::<f64>();
                         }
                     },
-                    move |err| rog::debugln!("{}", err),
+                    move |err| println!("{}", err),
                     None,
                 )
                 .unwrap(),
             _ => panic!("unreachable"),
         };
         stream.play().unwrap();
-    }
     let _ = stream;
-    */
 
     loop {
         // Stop the program, if the GUI is closed by the user
@@ -112,6 +106,7 @@ fn main() {
             }
             window.update_with_buffer(window_buffer.as_slice(), SCREEN_W, SCREEN_H).unwrap();
         }
+        
 
         if !mbrd.cpu.flip() {
             continue;

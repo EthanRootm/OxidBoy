@@ -1,4 +1,4 @@
-//use super::apu::Apu;
+use super::apu::Apu;
 use super::cartridge::{self, Cartridge};
 use super::terms::Term;
 use super::gpu::{Gpu, Hdma, HdmaMode};
@@ -19,6 +19,7 @@ pub enum Speed {
 
 pub struct Mmunit {
     pub cartridge: Box<dyn Cartridge>,
+    pub apu: Apu,
     pub gpu: Gpu,
     pub serial: Serial,
     pub joypad: Joypad,
@@ -44,6 +45,7 @@ impl Mmunit {
         let intf = Rc::new(RefCell::new(Intf::power_up()));
         let mut r = Self { 
             cartridge: cart,
+            apu: Apu::power_up(48000),
             gpu: Gpu::power_up(term, intf.clone()),
             serial: Serial::power_up(intf.clone()),
             joypad: Joypad::power_up(intf.clone()),
@@ -101,6 +103,7 @@ impl Mmunit {
         let cpu_cycles = cycles + vram_cycles * cpu_divider;
         self.time.next(cpu_cycles);
         self.gpu.next(gpu_cycles);
+        self.apu.next(gpu_cycles);
         gpu_cycles
     }
 
@@ -165,11 +168,11 @@ impl Memory for Mmunit {
             0xF000..=0xFDFF => self.wram[a as usize - 0xF000 + 0x1000 * self.wram_bank],
             0xFE00..=0xFE9F => self.gpu.get(a),
             0xFEA0..=0xFEFF => 0x00,
-            0xFF00 => 0x00,
+            0xFF00 => self.joypad.get(a),
             0xFF01..=0xFF02 => self.serial.get(a),
             0xFF04..=0xFF07 => self.time.get(a),
             0xFF0F => self.intf.borrow().data,
-            0xFF10..=0xFF3F => 0x00,
+            0xFF10..=0xFF3F => self.apu.get(a),
             0xFF4D => {
                 let a = if self.speed == Speed::Double { 0x80 } else { 0x00 };
                 let b = if self.shift { 0x01 } else { 0x00 };
@@ -196,10 +199,10 @@ impl Memory for Mmunit {
             0xF000..=0xFDFF => self.wram[a as usize - 0xF000 + 0x1000 * self.wram_bank] = v,
             0xFE00..=0xFE9F => self.gpu.set(a, v),
             0xFEA0..=0xFEFF => {}
-            0xFF00 => {},
+            0xFF00 => self.joypad.set(a, v),
             0xFF01..=0xFF02 => self.serial.set(a, v),
             0xFF04..=0xFF07 => self.time.set(a, v),
-            0xFF10..=0xFF3F => {},
+            0xFF10..=0xFF3F => self.apu.set(a, v),
             0xFF46 => {
                 assert!(v <= 0xF1);
                 let base = u16::from(v) << 8;

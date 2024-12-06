@@ -2,6 +2,7 @@ use super::clock::Clock;
 use super::cpu;
 use super::mem::Memory;
 use blip_buf::BlipBuf;
+use core::str;
 use std::cell::RefCell;
 use std::rc::Rc;
 use std::sync::{Arc, Mutex};
@@ -703,15 +704,98 @@ const RD_MASK: [u8; 48] = [
 ];
 
 impl Memory for Apu {
-    
+    fn get(&self, a: u16) -> u8 {
+        let r = match a {
+            0xFF10..=0xFF14 => self.channel1.get(a),
+            0xFF15..=0xFF19 => self.channel2.get(a),
+            0xFF1A..=0xFF1E => self.channel3.get(a),
+            0xFF1F..=0xFF23 => self.channel4.get(a),
+            0xFF24 => self.reg.nrx0,
+            0xFF25 => self.reg.nrx1,
+            0xFF26 => {
+                let a = self.reg.nrx2 & 0xF0;
+                let b = if self.channel1.reg.borrow().get_trigger() { 1 } else { 0 };
+                let c = if self.channel2.reg.borrow().get_trigger() { 2 } else { 0 };
+                let d = if self.channel3.reg.borrow().get_trigger() && self.channel3.reg.borrow().get_dac_power() {
+                    4
+                } else {
+                    0
+                };
+                let e = if self.channel4.reg.borrow().get_trigger() { 8 } else { 0 };
+                a | b | c | d | e
+            }
+            0xFF27..=0xFF2F => 0x00,
+            0xFF30..=0xFF3F => self.channel3.get(a),
+            _ => unreachable!(),
+        };
+        r | RD_MASK[a as usize - 0xFF10]
+    }
+
+    fn set(&mut self, a: u16, v: u8) {
+        if a != 0xFF26 && !self.reg.get_power() {
+            return;
+        }
+        match a {
+            0xFF10..=0xFF14 => self.channel1.set(a, v),
+            0xFF15..=0xFF19 => self.channel2.set(a, v),
+            0xFF1A..=0xFF1E => self.channel3.set(a, v),
+            0xFF1F..=0xFF23 => self.channel4.set(a, v),
+            0xFF24 => self.reg.nrx0 = v,
+            0xFF25 => self.reg.nrx1 = v,
+            0xFF26 => {
+                self.reg.nrx2 = v;
+                if !self.reg.get_power() {
+                    self.channel1.reg.borrow_mut().nrx0 = 0x00;
+                    self.channel1.reg.borrow_mut().nrx1 = 0x00;
+                    self.channel1.reg.borrow_mut().nrx2 = 0x00;
+                    self.channel1.reg.borrow_mut().nrx3 = 0x00;
+                    self.channel1.reg.borrow_mut().nrx4 = 0x00;
+                    self.channel2.reg.borrow_mut().nrx0 = 0x00;
+                    self.channel2.reg.borrow_mut().nrx1 = 0x00;
+                    self.channel2.reg.borrow_mut().nrx2 = 0x00;
+                    self.channel2.reg.borrow_mut().nrx3 = 0x00;
+                    self.channel2.reg.borrow_mut().nrx4 = 0x00;
+                    self.channel3.reg.borrow_mut().nrx0 = 0x00;
+                    self.channel3.reg.borrow_mut().nrx1 = 0x00;
+                    self.channel3.reg.borrow_mut().nrx2 = 0x00;
+                    self.channel3.reg.borrow_mut().nrx3 = 0x00;
+                    self.channel3.reg.borrow_mut().nrx4 = 0x00;
+                    self.channel4.reg.borrow_mut().nrx0 = 0x00;
+                    self.channel4.reg.borrow_mut().nrx1 = 0x00;
+                    self.channel4.reg.borrow_mut().nrx2 = 0x00;
+                    self.channel4.reg.borrow_mut().nrx3 = 0x00;
+                    self.channel4.reg.borrow_mut().nrx4 = 0x00;
+                    self.reg.nrx0 = 0x00;
+                    self.reg.nrx1 = 0x00;
+                    self.reg.nrx2 = 0x00;
+                    self.reg.nrx3 = 0x00;
+                    self.reg.nrx4 = 0x00;
+                }
+            }
+            0xFF27..=0xFF2F => {}
+            0xFF30..=0xFF3F => self.channel3.set(a, v),
+            _ => unreachable!(),
+        }
+    }
 }
 
-
-
 fn create_blipbuf(sample: u32) -> BlipBuf {
-    
+    let mut blipbuf = BlipBuf::new(sample);
+    blipbuf.set_rates(f64::from(cpu::CLOCK_FREQUENCY), f64::from(sample));
+    blipbuf
 }
 
 fn period(reg: Rc<RefCell<Register>>) -> u32 {
-    
+    match reg.borrow().channel {
+        Channel::Square1 | Channel::Square2 => 4 * (2048 - u32::from(reg.borrow().get_frequency())),
+        Channel::Wave => 2 * (2048 - u32::from(reg.borrow().get_frequency())),
+        Channel::Noise => {
+            let d = match reg.borrow().get_dividor() {
+                0 => 8,
+                n => (u32::from(n) + 1) * 16,
+            };
+            d << reg.borrow().get_clock_shift()
+        }
+        Channel::Mixer => cpu::CLOCK_FREQUENCY / 512,
+    }
 }
