@@ -99,7 +99,7 @@ impl Mmunit {
     pub fn next(&mut self, cycles: u32) -> u32 {
         let cpu_divider = self.speed as u32;
         let vram_cycles = self.run_dma();
-        let gpu_cycles = cycles /cpu_divider + vram_cycles;
+        let gpu_cycles = cycles / cpu_divider + vram_cycles;
         let cpu_cycles = cycles + vram_cycles * cpu_divider;
         self.time.next(cpu_cycles);
         self.gpu.next(gpu_cycles);

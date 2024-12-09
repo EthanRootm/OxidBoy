@@ -3,12 +3,13 @@ use super::intf::{Flags, Intf};
 use super::mem::Memory;
 use std::cell::RefCell;
 use std::rc::Rc;
+
 #[derive(PartialEq, Eq)]
 pub enum HdmaMode {
     Gdma,
     Hdma,
 }
-pub struct Hdma{
+pub struct Hdma {
     pub src: u16,
     pub dst: u16,
     pub active: bool,
@@ -57,6 +58,7 @@ impl Memory for Hdma {
 pub struct Lcdc {
     data: u8,
 }
+#[rustfmt::skip]
 impl Lcdc {
     pub fn power_up() -> Self {
         Self { data: 0b0100_1000 }
@@ -259,9 +261,9 @@ impl Gpu {
         assert!(r <= 0x1F);
         assert!(g <= 0x1F);
         assert!(b <= 0x1F);
-        let r = u16::from(r);
-        let g = u16::from(g);
-        let b = u16::from(b);
+        let r = u32::from(r);
+        let g = u32::from(g);
+        let b = u32::from(b);
         let lr = ((r * 13 + g * 2 + b) >> 1) as u8;
         let lg = ((g * 3 + b) << 1) as u8;
         let lb = ((r * 3 + g * 2 + b * 11) >> 1) as u8;
@@ -279,7 +281,7 @@ impl Gpu {
         }
         let c = (cycles - 1) / 80 + 1;
         for i in 0..c {
-            if i == (c - 1){
+            if i == (c - 1) {
                 self.dots += cycles % 80
             } else {
                 self.dots += 80
@@ -303,175 +305,176 @@ impl Gpu {
                     self.intf.borrow_mut().hi(Flags::LCDStat);
                 }
             } else if self.dots <= 80 {
-                    if self.stat.mode == 2 {
-                        continue;
-                    }
-                    self.stat.mode = 2;
-                    if self.stat.m2_interrupt {
-                        self.intf.borrow_mut().hi(Flags::LCDStat);
-                    }
-                } else if self.dots <= (80 + 172) {
-                    self.stat.mode = 3;
-                } else {
-                    if self.stat.mode == 0 {
-                        continue;
-                    }
-                    self.stat.mode = 0;
-                    self.h_blank = true;
-                    if self.stat.m0_interrupt {
-                        self.intf.borrow_mut().hi(Flags::LCDStat);
-                    }
-                    if self.term == Term::GBC || self.lcdc.bit0() {
-                        self.draw_bg();
-                    }
-                    if self.lcdc.bit1() {
-                        self.draw_sprites();
-                    }
+                if self.stat.mode == 2 {
+                    continue;
+                }
+                self.stat.mode = 2;
+                if self.stat.m2_interrupt {
+                    self.intf.borrow_mut().hi(Flags::LCDStat);
+                }
+            } else if self.dots <= (80 + 172) {
+                self.stat.mode = 3;
+            } else {
+                if self.stat.mode == 0 {
+                    continue;
+                }
+                self.stat.mode = 0;
+                self.h_blank = true;
+                if self.stat.m0_interrupt {
+                    self.intf.borrow_mut().hi(Flags::LCDStat);
+                }
+                // Render scanline
+                if self.term == Term::GBC || self.lcdc.bit0() {
+                    self.draw_bg();
+                }
+                if self.lcdc.bit1() {
+                    self.draw_sprites();
                 }
             }
         }
+    }
 
-        fn draw_bg(&mut self) {
-            let show_window = self.lcdc.bit5() && self.wy <= self.ly;
-            let tile_base = if self.lcdc.bit4() { 0x8000 } else { 0x8800 };
+    fn draw_bg(&mut self) {
+        let show_window = self.lcdc.bit5() && self.wy <= self.ly;
+        let tile_base = if self.lcdc.bit4() { 0x8000 } else { 0x8800 };
 
-            let wx = self.wx.wrapping_sub(7);
-            let py = if show_window { self.ly.wrapping_sub(self.wy) } else { self.sy.wrapping_add(self.ly) };
-            let ty = (u16::from(py) >> 3) & 31;
+        let wx = self.wx.wrapping_sub(7);
+        let py = if show_window { self.ly.wrapping_sub(self.wy) } else { self.sy.wrapping_add(self.ly) };
+        let ty = (u16::from(py) >> 3) & 31;
 
-            for x in 0..SCREEN_W {
-                let px = if show_window && x as u8 >= wx { x as u8 - wx } else {self.sx.wrapping_add(x as u8) };
-                let tx = (u16::from(px) >> 3) & 31; 
+        for x in 0..SCREEN_W {
+            let px = if show_window && x as u8 >= wx { x as u8 - wx } else { self.sx.wrapping_add(x as u8) };
+            let tx = (u16::from(px) >> 3) & 31;
 
-                let bg_base = if show_window && x as u8 >= wx {
-                    if self.lcdc.bit6() {
-                        0x9C00
-                    } else {
-                        0x9800
-                    }
-                } else if self.lcdc.bit3() {
+            let bg_base = if show_window && x as u8 >= wx {
+                if self.lcdc.bit6() {
                     0x9C00
                 } else {
                     0x9800
-                };
+                }
+            } else if self.lcdc.bit3() {
+                0x9C00
+            } else {
+                0x9800
+            };
 
-                let tile_addr = bg_base + ty * 32 + tx;
-                let tile_number = self.get_ram0(tile_addr);
-                let tile_offset = if self.lcdc.bit4() {
-                    i16::from(tile_number)
-                } else {
-                    i16::from(tile_number as i8) + 128
-                } as u16 * 16;
-                let tile_location = tile_base + tile_offset;
-                let tile_attr = Attr::from(self.get_ram1(tile_addr));
+        let tile_addr = bg_base + ty * 32 + tx;
+            let tile_number = self.get_ram0(tile_addr);
+            let tile_offset = if self.lcdc.bit4() {
+                i16::from(tile_number)
+            } else {
+                i16::from(tile_number as i8) + 128
+            } as u16 * 16;
+            let tile_location = tile_base + tile_offset;
+            let tile_attr = Attr::from(self.get_ram1(tile_addr));
 
-                let tile_y = if tile_attr.yflip { 7 - py % 8 } else { py % 8 };
-                let tile_y_data: [u8; 2] = if self.term == Term::GBC && tile_attr.bank {
-                    let a = self.get_ram1(tile_location + u16::from(tile_y * 2));
-                    let b = self.get_ram1(tile_location + u16::from(tile_y * 2) + 1);
-                    [a, b]
-                } else {
-                    let a = self.get_ram0(tile_location + u16::from(tile_y * 2));
-                    let b = self.get_ram0(tile_location + u16::from(tile_y * 2) + 1);
-                    [a, b]
-                };
-                let tile_x = if tile_attr.xflip { 7 - px % 8 } else { px % 8 };
+            let tile_y = if tile_attr.yflip { 7 - py % 8 } else { py % 8 };
+            let tile_y_data: [u8; 2] = if self.term == Term::GBC && tile_attr.bank {
+                let a = self.get_ram1(tile_location + u16::from(tile_y * 2));
+                let b = self.get_ram1(tile_location + u16::from(tile_y * 2) + 1);
+                [a, b]
+            } else {
+                let a = self.get_ram0(tile_location + u16::from(tile_y * 2));
+                let b = self.get_ram0(tile_location + u16::from(tile_y * 2) + 1);
+                [a, b]
+            };
+            let tile_x = if tile_attr.xflip { 7 - px % 8 } else { px % 8 };
+
+            let color_l = if tile_y_data[0] & (0x80 >> tile_x) != 0 { 1 } else { 0 };
+            let color_h = if tile_y_data[1] & (0x80 >> tile_x) != 0 { 2 } else { 0 };
+            let color = color_h | color_l;
+                
+
+            self.prio[x] = (tile_attr.priority, color);
+                
+
+            if self.term == Term::GBC {
+                let r = self.cbgpd[tile_attr.palette_num_1][color][0];
+                let g = self.cbgpd[tile_attr.palette_num_1][color][1];
+                let b = self.cbgpd[tile_attr.palette_num_1][color][2];
+                self.set_rgb(x as usize, r, g, b);
+            } else {
+                let color = Self::get_gray_shaders(self.bgp, color) as u8;
+                self.set_gre(x, color);
+            }
+        }
+    }
+        
+    fn draw_sprites(&mut self) {
+        let sprite_size = if self.lcdc.bit2() { 16 } else { 8 };
+        for i in 0..40 {
+            let sprite_addr = 0xFE00 + (i as u16) * 4;
+            let py = self.get(sprite_addr).wrapping_sub(16);
+            let px = self.get(sprite_addr + 1).wrapping_sub(8);
+            let tile_number = self.get(sprite_addr + 2) & if self.lcdc.bit2() { 0xFE } else { 0xFF };
+            let tile_attr = Attr::from(self.get(sprite_addr + 3));
+
+            if py <= 0xFF - sprite_size + 1 {
+                if self.ly < py || self.ly > py + sprite_size - 1 {
+                    continue;
+                }
+            } else {
+                if self.ly > py.wrapping_add(sprite_size) - 1 {
+                    continue;
+                }
+            }
+            if px >= (SCREEN_W as u8) && px <= (0xFF - 7) {
+                continue;
+            }
+
+            let tile_y = if tile_attr.yflip { sprite_size - 1 - self.ly.wrapping_sub(py) } else { self.ly.wrapping_sub(py) };
+            let tile_y_addr = 0x8000u16 + u16::from(tile_number) * 16 + u16::from(tile_y) * 2;
+            let tile_y_data: [u8; 2] = if self.term == Term::GBC && tile_attr.bank {
+                let b1 = self.get_ram1(tile_y_addr);
+                let b2 = self.get_ram1(tile_y_addr + 1);
+                [b1, b2]
+            } else {
+                let b1 = self.get_ram0(tile_y_addr);
+                let b2 = self.get_ram0(tile_y_addr + 1);
+                [b1, b2]
+            };
+
+            for x in 0..8 {
+                if px.wrapping_add(x) >= (SCREEN_W as u8) {
+                    continue;
+                }
+                let tile_x = if tile_attr.xflip { 7 - x } else { x };
 
                 let color_l = if tile_y_data[0] & (0x80 >> tile_x) != 0 { 1 } else { 0 };
                 let color_h = if tile_y_data[1] & (0x80 >> tile_x) != 0 { 2 } else { 0 };
                 let color = color_h | color_l;
-                
-
-                self.prio[x] = (tile_attr.priority, color);
-                
-
-                if self.term == Term::GBC {
-                    let r = self.cbgpd[tile_attr.palette_num_1][color][0];
-                    let g = self.cbgpd[tile_attr.palette_num_1][color][1];
-                    let b = self.cbgpd[tile_attr.palette_num_1][color][2];
-                    self.set_rgb(x as usize, r, g, b);
-                } else {
-                    let color = Self::get_gray_shaders(self.bgp, color) as u8;
-                    self.set_gre(x, color);
-                }
-            }
-        }
-        
-        fn draw_sprites(&mut self) {
-            let sprite_size = if self.lcdc.bit2() { 16 } else { 8 };
-            for i in 0..40 {
-                let sprite_addr = 0xFE00 + (i as u16) * 4;
-                let py = self.get(sprite_addr).wrapping_sub(16);
-                let px = self.get(sprite_addr + 1).wrapping_sub(8);
-                let tile_number = self.get(sprite_addr + 2) & if self.lcdc.bit2() { 0xFE } else { 0xFF };
-                let tile_attr = Attr::from(self.get(sprite_addr + 3));
-
-                if py <= 0xFF - sprite_size + 1 {
-                    if self.ly < py || self.ly > py + sprite_size - 1 {
-                        continue;
-                    }
-                } else {
-                    if self.ly > py.wrapping_add(sprite_size) - 1 {
-                        continue;
-                    }
-                }
-                if px >= (SCREEN_W as u8) && px <= (0xFF - 7) {
+                if color == 0 {
                     continue;
                 }
 
-                let tile_y = if tile_attr.yflip {sprite_size - 1 - self.ly.wrapping_sub(py) } else { self.ly.wrapping_sub(py) };
-                let tile_y_addr = 0x8000u16 + u16::from(tile_number) * 16 + u16::from(tile_y) * 2;
-                let tile_y_data: [u8; 2] = if self.term == Term::GBC && tile_attr.bank {
-                    let b1 = self.get_ram1(tile_y_addr);
-                    let b2 = self.get_ram1(tile_y_addr + 1);
-                    [b1, b2]
+                let prio = self.prio[px.wrapping_add(x) as usize];
+                let skip = if self.term == Term::GBC && !self.lcdc.bit0() {
+                    prio.1 == 0
+                } else if prio.0 {
+                    prio.1 != 0
                 } else {
-                    let b1 = self.get_ram0(tile_y_addr);
-                    let b2 = self.get_ram0(tile_y_addr + 1);
-                    [b1, b2]
+                    tile_attr.priority && prio.1 != 0
                 };
+                if skip {
+                    continue;
+                }
 
-                for x in 0..8 {
-                    if px.wrapping_add(x) >= (SCREEN_W as u8) {
-                        continue;
-                    }
-                    let tile_x = if tile_attr.xflip { 7 - x } else { x };
-
-                    let color_l = if tile_y_data[0] & (0x80 >> tile_x) != 0 { 1 } else { 0 };
-                    let color_h = if tile_y_data[1] & (0x80 >> tile_x) != 0 { 2 } else { 0 };
-                    let color = color_h | color_l;
-                    if color == 0 {
-                        continue;
-                    }
-
-                    let prio = self.prio[px.wrapping_add(x) as usize];
-                    let skip = if self.term == Term::GBC && !self.lcdc.bit0() {
-                        prio.1 == 0
-                    } else if prio.0 {
-                        prio.1 != 0
+                if self.term == Term::GBC {
+                    let r = self.cobpd[tile_attr.palette_num_1][color][0];
+                    let g = self.cobpd[tile_attr.palette_num_1][color][1];
+                    let b = self.cobpd[tile_attr.palette_num_1][color][2];
+                    self.set_rgb(px.wrapping_add(x) as usize, r, g, b);
+                } else {
+                    let color = if tile_attr.palette_num_0 == 1 {
+                        Self::get_gray_shaders(self.op1, color) as u8
                     } else {
-                        tile_attr.priority && prio.1 != 0
+                        Self::get_gray_shaders(self.op0, color) as u8
                     };
-                    if skip {
-                        continue;
-                    }
-
-                    if self.term == Term::GBC {
-                        let r = self.cobpd[tile_attr.palette_num_1][color][0];
-                        let g = self.cobpd[tile_attr.palette_num_1][color][1];
-                        let b = self.cobpd[tile_attr.palette_num_1][color][2];
-                        self.set_rgb(px.wrapping_add(x) as usize, r, g, b);
-                    } else {
-                        let color = if tile_attr.palette_num_0 == 1 {
-                            Self::get_gray_shaders(self.op1, color) as u8
-                        } else {
-                            Self::get_gray_shaders(self.op0, color) as u8
-                        };
-                        self.set_gre(px.wrapping_add(x) as usize, color);
-                    }
+                    self.set_gre(px.wrapping_add(x) as usize, color);
                 }
             }
         }
+    }
 }
 
 impl Memory for Gpu {
@@ -518,7 +521,7 @@ impl Memory for Gpu {
                 let c = self.cobpi.i as usize >> 1 & 0x3;
                 if self.cobpi.i & 0x01 == 0x00  {
                     let a = self.cobpd[r][c][0];
-                    let b = self.cobpd[r][c][1];
+                    let b = self.cobpd[r][c][1] << 5;
                     a | b
                 } else {
                     let a = self.cobpd[r][c][1] >> 3;
@@ -578,21 +581,21 @@ impl Memory for Gpu {
         }
         0xFF6A => self.cobpi.set(v),
         0xFF6B => {
-            let r = self.cbgpi.i as usize >> 3;
-            let c = self.cbgpi.i as usize >> 1 & 0x03;
-            if self.cbgpi.i & 0x01 == 0x00 {
-                self.cbgpd[r][c][0] = v & 0x1F;
-                self.cbgpd[r][c][1] = (self.cbgpd[r][c][1] & 0x18) | (v >> 5);
+            let r = self.cobpi.i as usize >> 3;
+            let c = self.cobpi.i as usize >> 1 & 0x03;
+            if self.cobpi.i & 0x01 == 0x00 {
+                self.cobpd[r][c][0] = v & 0x1F;
+                self.cobpd[r][c][1] = (self.cobpd[r][c][1] & 0x18) | (v >> 5);
             } else {
-                self.cbgpd[r][c][1] = (self.cbgpd[r][c][1] & 0x07) | ((v & 0x03) << 3);
-                self.cbgpd[r][c][2] = (v >> 2) & 0x1F;
+                self.cobpd[r][c][1] = (self.cobpd[r][c][1] & 0x07) | ((v & 0x03) << 3);
+                self.cobpd[r][c][2] = (v >> 2) & 0x1F;
             }
-            if self.cbgpi.auto_increment {
-                self.cbgpi.i += 0x01;
-                self.cbgpi.i &= 0x3F;
+            if self.cobpi.auto_increment {
+                self.cobpi.i += 0x01;
+                self.cobpi.i &= 0x3F;
             }
         }
-        _ => panic!("")
+        _ => panic!(""),
         } 
     }
 }

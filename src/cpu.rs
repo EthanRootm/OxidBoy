@@ -1071,7 +1071,7 @@ impl Cpu {
                         let b = self.mem.borrow().get(a);
                         self.alu_bit(b , 0);
                     }
-                    0x47 => self.alu_bit(self.reg.a_reg, 1),
+                    0x47 => self.alu_bit(self.reg.a_reg, 0),
                     0x48 => self.alu_bit(self.reg.b_reg, 1),
                     0x49 => self.alu_bit(self.reg.c_reg, 1),
                     0x4A => self.alu_bit(self.reg.d_reg, 1),

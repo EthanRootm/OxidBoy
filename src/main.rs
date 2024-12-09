@@ -8,7 +8,7 @@ use cpal::Sample;
 
 fn main() {
 
-    let mut rom = "./Roms/Red.gb";
+    let mut rom = "./Roms/sml.gb";
     /* 
     let mut c_scale = 2;
     {

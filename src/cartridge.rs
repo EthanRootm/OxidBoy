@@ -9,21 +9,18 @@ pub trait Stable {
     fn sav(&self);
 }
 
-enum BankMode {
-    Rom,
-    Ram,
-}
 
-struct RomOnly {
-    rom: Vec<u8>
-} impl RomOnly {
+
+pub struct RomOnly {
+    rom: Vec<u8>,
+} 
+
+impl RomOnly {
     pub fn power_up(rom: Vec<u8>) -> Self {
-        RomOnly {rom}
+        RomOnly { rom }
     }
 } 
-impl Stable for RomOnly {
-    fn sav(&self) {}
-}
+
 impl Memory for RomOnly {
     fn get(&self, a: u16) -> u8 {
         self.rom[a as usize]
@@ -31,15 +28,26 @@ impl Memory for RomOnly {
     fn set(&mut self, _: u16, _: u8) {}
 }
 
-struct Mbc1 {
-    rom:Vec<u8>,
-    ram:Vec<u8>,
+impl Stable for RomOnly {
+    fn sav(&self) {}
+}
+
+enum BankMode {
+    Rom,
+    Ram,
+}
+
+pub struct Mbc1 {
+    rom: Vec<u8>,
+    ram: Vec<u8>,
     bank_mode: BankMode,
-    bank:u8,
+    bank: u8,
     ram_enabled: bool,
     sav_path: PathBuf,
-} impl Mbc1 {
-    pub fn power_up(rom: Vec<u8>, ram: Vec<u8>, sav: impl AsRef<Path>) -> Self{
+}
+
+impl Mbc1 {
+    pub fn power_up(rom: Vec<u8>, ram: Vec<u8>, sav: impl AsRef<Path>) -> Self {
         Mbc1 {rom , ram, bank_mode: BankMode::Rom, bank: 0x01, ram_enabled: false, sav_path: PathBuf::from(sav.as_ref()),}
     }
     fn rom_bank(&self) -> usize {
@@ -57,15 +65,7 @@ struct Mbc1 {
         n as usize
     }
 }
-impl Stable for Mbc1 {
-    fn sav(&self) {
-        dbg!("Ram is being persisted");
-        if self.sav_path.to_str().unwrap().is_empty() {
-            return;
-        }
-        File::create(self.sav_path.clone()).and_then(|mut f| f.write_all(&self.ram)).unwrap()
-    }
-}
+
 impl Memory for Mbc1 {
     fn get(&self, a: u16) -> u8 {
         match a {
@@ -94,7 +94,9 @@ impl Memory for Mbc1 {
                     self.ram[i] = v;
                 }
             }
-            0x0000..=0x1FFF => self.ram_enabled = v & 0x0F == 0x0A,
+            0x0000..=0x1FFF => {
+                self.ram_enabled = v & 0x0F == 0x0A;
+            }
             0x2000..=0x3FFF => {
                 let n = v & 0x1F;
                 let n = match n {
@@ -110,25 +112,14 @@ impl Memory for Mbc1 {
             0x6000..=0x7FFF => match v {
                 0x00 => self.bank_mode = BankMode::Rom,
                 0x01 => self.bank_mode = BankMode::Ram,
-                n => panic!("Invalid Cart type {:?}", n),
+                n => panic!("Invalid Cart type {}", n),
             }
             _ => {}
         }
     }
 }
 
-struct Mbc2 {
-    rom: Vec<u8>,
-    ram: Vec<u8>,
-    rom_bank: usize,
-    ram_enable: bool,
-    sav_path: PathBuf,
-} impl Mbc2 {
-    pub fn power_up(rom: Vec<u8>, ram: Vec<u8>, sav: impl AsRef<Path>) -> Self {
-        Self {rom, ram, rom_bank: 1, ram_enable: false, sav_path: PathBuf::from(sav.as_ref())}
-    }
-}
-impl Stable for Mbc2 {
+impl Stable for Mbc1 {
     fn sav(&self) {
         dbg!("Ram is being persisted");
         if self.sav_path.to_str().unwrap().is_empty() {
@@ -137,6 +128,21 @@ impl Stable for Mbc2 {
         File::create(self.sav_path.clone()).and_then(|mut f| f.write_all(&self.ram)).unwrap()
     }
 }
+
+pub struct Mbc2 {
+    rom: Vec<u8>,
+    ram: Vec<u8>,
+    rom_bank: usize,
+    ram_enable: bool,
+    sav_path: PathBuf,
+}
+
+impl Mbc2 {
+    pub fn power_up(rom: Vec<u8>, ram: Vec<u8>, sav: impl AsRef<Path>) -> Self {
+        Self { rom, ram, rom_bank: 1, ram_enable: false, sav_path: PathBuf::from(sav.as_ref()) }
+    }
+}
+
 impl Memory for Mbc2 {
     fn get(&self, a: u16) -> u8 {
         match a {
@@ -178,6 +184,17 @@ impl Memory for Mbc2 {
         }
     }
 }
+
+impl Stable for Mbc2 {
+    fn sav(&self) {
+        dbg!("Ram is being persisted");
+        if self.sav_path.to_str().unwrap().is_empty() {
+            return;
+        }
+        File::create(self.sav_path.clone()).and_then(|mut f| f.write_all(&self.ram)).unwrap()
+    }
+}
+
 struct RTC {
     second: u8,
     minute: u8,
@@ -185,8 +202,10 @@ struct RTC {
     dl: u8,
     dh: u8,
     zero: u64,
-    sav_path:PathBuf,
-} impl RTC {
+    sav_path: PathBuf,
+} 
+
+impl RTC {
     fn power_up(sav_path: impl AsRef<Path>) -> Self {
         let zero = match std::fs::read(sav_path.as_ref()){
             Ok(ok) => {
@@ -196,19 +215,21 @@ struct RTC {
             }
             Err(_) => SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap().as_secs(),
         };
-        Self {zero, second: 0, minute: 0, hour: 0, dl: 0, dh: 0, sav_path: sav_path.as_ref().to_path_buf()}
+        Self { zero, second: 0, minute: 0, hour: 0, dl: 0, dh: 0, sav_path: sav_path.as_ref().to_path_buf() }
     }
     fn tic(&mut self) {
         let d = SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap().as_secs() - self.zero;
 
         self.second = (d % 60) as u8;
-        self.minute = (d % 60 % 60) as u8;
+        self.minute = (d / 60 % 60) as u8;
         self.hour = (d / 3600 % 24) as u8;
         let days = (d / 3600 / 24) as u16;
         self.dl = (days % 256) as u8;
         match days {
             0x0000..=0x00ff => {}
-            0x0100..=0x01ff => { self.dh |= 0x01;}
+            0x0100..=0x01ff => { 
+                self.dh |= 0x01;
+            }
             _ => {
                 self.dh |= 0x01;
                 self.dh |= 0x80;
@@ -216,14 +237,7 @@ struct RTC {
         }
     }
 }
-impl Stable for RTC {
-    fn sav(&self) {
-        if self.sav_path.to_str().unwrap().is_empty() {
-            return;
-        }
-        File::create(self.sav_path.clone()).and_then(|mut f| f.write_all(&self.zero.to_be_bytes())).unwrap()
-    }
-}
+
 impl Memory for RTC {
     fn get(&self, a: u16) -> u8 {
         match a {
@@ -248,8 +262,16 @@ impl Memory for RTC {
     }
 }
 
+impl Stable for RTC {
+    fn sav(&self) {
+        if self.sav_path.to_str().unwrap().is_empty() {
+            return;
+        }
+        File::create(self.sav_path.clone()).and_then(|mut f| f.write_all(&self.zero.to_be_bytes())).unwrap()
+    }
+}
 
-struct Mbc3 {
+pub struct Mbc3 {
     rom: Vec<u8>,
     ram: Vec<u8>,
     rtc: RTC,
@@ -257,18 +279,11 @@ struct Mbc3 {
     ram_bank: usize,
     ram_enable: bool,
     sav_path: PathBuf,
-} impl Mbc3 {
-    pub fn power_up(rom: Vec<u8>, ram: Vec<u8>, sav: impl AsRef<Path>, rtc: impl AsRef<Path>) -> Self {
-        Self {rom, ram, rtc: RTC::power_up(rtc), rom_bank: 1, ram_bank: 0, ram_enable: false, sav_path: PathBuf::from(sav.as_ref())}
-    }
 }
-impl Stable for Mbc3 {
-    fn sav(&self) {
-        println!("Ram is being persisted");
-        if self.sav_path.to_str().unwrap().is_empty() {
-            return;
-        }
-        File::create(self.sav_path.clone()).and_then(|mut f| f.write_all(&self.ram)).unwrap()
+
+impl Mbc3 {
+    pub fn power_up(rom: Vec<u8>, ram: Vec<u8>, sav: impl AsRef<Path>, rtc: impl AsRef<Path>) -> Self {
+        Self { rom, ram, rtc: RTC::power_up(rtc), rom_bank: 1, ram_bank: 0, ram_enable: false, sav_path: PathBuf::from(sav.as_ref()) }
     }
 }
 
@@ -301,10 +316,10 @@ impl Memory for Mbc3 {
             0xA000..=0xBFFF => {
                 if self.ram_enable {
                     if self.ram_bank <= 0x03 {
-                        let i = self.ram_bank * 0x2000  + a as usize - 0xA000;
+                        let i = self.ram_bank * 0x2000 + a as usize - 0xA000;
                         self.ram[i] = v;
                     } else {
-                        self.rtc.set(self.ram_bank as u16, v);
+                        self.rtc.set(self.ram_bank as u16, v)
                     }
                 }
             }
@@ -333,25 +348,29 @@ impl Memory for Mbc3 {
     }
 }
 
-struct Mbc5 {
+impl Stable for Mbc3 {
+    fn sav(&self) {
+        println!("Ram is being persisted");
+        self.rtc.sav();
+        if self.sav_path.to_str().unwrap().is_empty() {
+            return;
+        }
+        File::create(self.sav_path.clone()).and_then(|mut f| f.write_all(&self.ram)).unwrap();
+    }
+}
+
+pub struct Mbc5 {
     rom: Vec<u8>,
     ram: Vec<u8>,
     rom_bank: usize,
     ram_bank: usize,
     ram_enable: bool,
     sav_path: PathBuf,
-} impl Mbc5 {
-    pub fn power_up(rom: Vec<u8>, ram: Vec<u8>, sav: impl AsRef<Path>) -> Self {
-        Self {rom, ram, rom_bank: 1, ram_bank: 0, ram_enable:false, sav_path: PathBuf::from(sav.as_ref())}
-    }
 }
-impl Stable for Mbc5 {
-    fn sav(&self) {
-        dbg!("Ram is being persisted");
-        if self.sav_path.to_str().unwrap().is_empty() {
-            return;
-        }
-        File::create(self.sav_path.clone()).and_then(|mut f| f.write_all(&self.ram)).unwrap()
+
+impl Mbc5 {
+    pub fn power_up(rom: Vec<u8>, ram: Vec<u8>, sav: impl AsRef<Path>) -> Self {
+        Self { rom, ram, rom_bank: 1, ram_bank: 0, ram_enable:false, sav_path: PathBuf::from(sav.as_ref()) }
     }
 }
 
@@ -394,16 +413,23 @@ impl Memory for Mbc5 {
     }
 }
 
-struct HuC1 {
-    cart: Mbc1,
-} impl HuC1 {
-    pub fn power_up(rom: Vec<u8>, ram: Vec<u8>, sav: impl AsRef<Path>) -> Self {
-        Self {cart: Mbc1::power_up(rom, ram, sav)}
+impl Stable for Mbc5 {
+    fn sav(&self) {
+        dbg!("Ram is being persisted");
+        if self.sav_path.to_str().unwrap().is_empty() {
+            return;
+        }
+        File::create(self.sav_path.clone()).and_then(|mut f| f.write_all(&self.ram)).unwrap()
     }
 }
-impl Stable for HuC1 {
-    fn sav(&self) {
-        self.cart.sav();
+
+pub struct HuC1 {
+    cart: Mbc1,
+}
+
+impl HuC1 {
+    pub fn power_up(rom: Vec<u8>, ram: Vec<u8>, sav: impl AsRef<Path>) -> Self {
+        Self { cart: Mbc1::power_up(rom, ram, sav) }
     }
 }
 
@@ -413,7 +439,13 @@ impl Memory for HuC1 {
     }
 
     fn set(&mut self, a: u16, v: u8) {
-        self.cart.set(a, v);
+        self.cart.set(a, v)
+    }
+}
+
+impl Stable for HuC1 {
+    fn sav(&self) {
+        self.cart.sav()
     }
 }
 
@@ -475,7 +507,7 @@ pub fn power_up(path: impl AsRef<Path>) -> Box<dyn Cartridge> {
             let ram = ram_read(sav_path.clone(), ram_maximum);
             Box::new(Mbc3::power_up(rom, ram, sav_path, ""))
         }
-        0x19 => Box::new(Mbc5::power_up(rom, vec![], "")), 
+        0x19 => Box::new(Mbc5::power_up(rom, vec![], "")),
         0x1A => {
             let ram_maximum = ram_size(rom[0x0149]);
             Box::new(Mbc5::power_up(rom, vec![0; ram_maximum], ""))
@@ -492,13 +524,34 @@ pub fn power_up(path: impl AsRef<Path>) -> Box<dyn Cartridge> {
             let ram = ram_read(sav_path.clone(), ram_maximum);
             Box::new(HuC1::power_up(rom, ram, sav_path))
         }
-        n => panic!("Unsupported cartridge type : 0x{:02x}", n),
+        n => panic!("Unsupported cartridge type: 0x{:02x}", n),
     };
     dbg!(cart.title());
     dbg!(cart_type(cart.get(0x0147)));
     ensure_logo(cart.as_ref());
     ensure_header_checksum(cart.as_ref());
     cart
+}
+
+
+
+fn rom_size(byte: u8) -> usize {
+    let bank = 16384;
+    match byte {
+        0x00 => bank * 2,
+        0x01 => bank * 4,
+        0x02 => bank * 8,
+        0x03 => bank * 16,
+        0x04 => bank * 32,
+        0x05 => bank * 64,
+        0x06 => bank * 128,
+        0x07 => bank * 256,
+        0x08 => bank * 512,
+        0x52 => bank * 72,
+        0x53 => bank * 80,
+        0x54 => bank * 96,
+        a => panic!("Rom size 0x{} is not supported", a)
+    }
 }
 
 fn ram_size(byte: u8) -> usize {
@@ -515,31 +568,12 @@ fn ram_size(byte: u8) -> usize {
 
 fn ram_read(path: impl AsRef<Path>, size: usize) -> Vec<u8> {
     match File::open(path) {
-        Ok(mut  ok) => {
+        Ok(mut ok) => {
             let mut ram = Vec::new();
             ok.read_to_end(&mut ram).unwrap();
             ram
         }
         Err(_) => vec![0; size],
-    }
-}
-
-fn rom_size(byte: u8) -> usize{
-    let bank = 16384;
-    match byte {
-        0x00 => bank * 2,
-        0x01 => bank * 4,
-        0x02 => bank * 8,
-        0x03 => bank * 16,
-        0x04 => bank * 32,
-        0x05 => bank * 64,
-        0x06 => bank * 128,
-        0x07 => bank * 256,
-        0x08 => bank * 512,
-        0x52 => bank * 72,
-        0x53 => bank * 80,
-        0x54 => bank * 96,
-        a => panic!("Rom size 0x{} is not supported", a)
     }
 }
 
@@ -567,12 +601,10 @@ fn cart_type(byte: u8) -> String {
         0x1C => "MBC5+RUMBLE",
         0x1D => "MBC5+RUMBLE+RAM",
         0x1E => "MBC5+RUMBLE+RAM+BATTERY",
-        0x20 => "MBC6",
-        0x22 => "MBC7+SENSOR+RUMBLE+RAM+BATTERY",
         0xFC => "POCKET CAMERA",
         0xFD => "BANDAI TAMA5",
         0xFE => "HuC3",
-        0xFF => "HuC1+RAM+BATTERY",
+        0x1F => "HuC1+RAM+BATTERY",
         n => panic!("Unsupported cartridge type 0x{:02x}", n),
     })
 }
@@ -605,11 +637,11 @@ pub trait Cartridge: Memory + Stable + Send {
     fn title(&self) -> String {
         let mut buf = String::new();
         let ic = 0x0134;
-        let oc = if self.get(0x0143) == 0x80{ 0x013e } else { 0x0143 };
+        let oc = if self.get(0x0143) == 0x80 { 0x013e } else { 0x0143 };
         for i in ic..oc {
             match self.get(i) {
                 0 => break,
-                v => buf.push((v as u8) as char),
+                v => buf.push(v as char),
             }
         }
         buf

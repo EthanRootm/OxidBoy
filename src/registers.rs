@@ -79,11 +79,11 @@ pub enum Flags {
 }
 
 impl Flags {
-    fn orgin(self) -> u8 {
+    pub fn orgin(self) -> u8 {
         self as u8
     }
 
-    fn inverse(self) -> u8 {
+    pub fn inverse(self) -> u8 {
         !self.orgin()
     }
 }
@@ -107,11 +107,11 @@ impl Register {
     /// * Returns the state of Registers after the powerup sequence has been finished
     pub fn power_up(term: Term) -> Self {
         let mut registers = Self::default();
-        registers.a_reg = match term {
-            Term::GB => 0x01,
-            Term::GBP => 0xFF,
-            Term::GBC => 0x11,
-            Term::SGB => 0x01,
+        match term {
+            Term::GB => registers.a_reg =  0x01,
+            Term::GBP => registers.a_reg = 0xFF,
+            Term::GBC => registers.a_reg = 0x11,
+            Term::SGB => registers.a_reg = 0x01,
         };
 
         registers.f_reg = 0xB0;
