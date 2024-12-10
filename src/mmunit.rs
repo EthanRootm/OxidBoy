@@ -43,7 +43,7 @@ impl Mmunit {
             _ => Term::GB,
         };
         let intf = Rc::new(RefCell::new(Intf::power_up()));
-        let mut r = Self { 
+        let mut r = Self {
             cartridge: cart,
             apu: Apu::power_up(48000),
             gpu: Gpu::power_up(term, intf.clone()),
@@ -215,6 +215,7 @@ impl Memory for Mmunit {
             0xFF40..=0xFF45 | 0xFF47..=0xFF4B | 0xFF4F => self.gpu.set(a, v),
             0xFF51..=0xFF55 => self.hdma.set(a, v),
             0xFF68..=0xFF6B => self.gpu.set(a, v),
+            0xFF0F => self.intf.borrow_mut().data = v,
             0xFF70 => {
                 self.wram_bank = match v & 0x7 {
                     0 => 1,

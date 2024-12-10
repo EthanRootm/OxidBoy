@@ -8,8 +8,7 @@ use cpal::Sample;
 
 fn main() {
 
-    let mut rom = "./Roms/sml.gb";
-    /* 
+    let mut rom = String::from("");
     let mut c_scale = 2;
     {
         let mut ap = argparse::ArgumentParser::new();
@@ -22,7 +21,6 @@ fn main() {
         ap.refer(&mut rom).add_argument("rom", argparse::Store, "Rom name");
         ap.parse_args_or_exit();
     }
-    */
 
     let mut mbrd = MotherBoard::power_up(rom);
     let rom_name = mbrd.mmu.borrow().cartridge.title();

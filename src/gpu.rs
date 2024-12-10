@@ -173,7 +173,7 @@ pub struct Gpu {
     pub v_blank: bool,
 
     lcdc: Lcdc,
-    stat:Stat,
+    stat: Stat,
 
     sy: u8,
     sx: u8,
@@ -208,7 +208,7 @@ pub struct Gpu {
 impl Gpu {
     pub fn power_up(term: Term, intf: Rc<RefCell<Intf>>) -> Self {
         Self { 
-            data: [[[0xFFu8; 3]; SCREEN_W]; SCREEN_H],
+            data: [[[0xffu8; 3]; SCREEN_W]; SCREEN_H],
             intf,
             term,
             h_blank: false,
@@ -534,68 +534,68 @@ impl Memory for Gpu {
     }
 
     fn set(&mut self, a: u16, v: u8) {
-    match a {
-        0x8000..=0x9FFF => self.ram[self.ram_bank * 0x2000 + a as usize - 0x8000] = v,
-        0xFE00..=0xFE9F => self.oam[a as usize - 0xFE00] = v,
-        0xFF40 => {
-            self.lcdc.data = v;
-            if !self.lcdc.bit7() {
-                self.dots = 0;
-                self.ly = 0;
-                self.stat.mode = 0;
-                self.data = [[[0xFFu8; 3]; SCREEN_W]; SCREEN_H];
-                self.v_blank = true;
+        match a {
+            0x8000..=0x9FFF => self.ram[self.ram_bank * 0x2000 + a as usize - 0x8000] = v,
+            0xFE00..=0xFE9F => self.oam[a as usize - 0xFE00] = v,
+            0xFF40 => {
+                self.lcdc.data = v;
+                if !self.lcdc.bit7() {
+                    self.dots = 0;
+                    self.ly = 0;
+                    self.stat.mode = 0;
+                    self.data = [[[0xffu8; 3]; SCREEN_W]; SCREEN_H];
+                    self.v_blank = true;
+                }
             }
+            0xFF41 => {
+                self.stat.ly_interrupt = v & 0x40 != 0x00;
+                self.stat.m2_interrupt = v & 0x20 != 0x00;
+                self.stat.m1_interrupt = v & 0x10 != 0x00;
+                self.stat.m0_interrupt = v & 0x08 != 0x00;
+            }
+            0xFF42 => self.sy = v,
+            0xFF43 => self.sx = v,
+            0xFF44 => {}
+            0xFF45 => self.lc = v,
+            0xFF47 => self.bgp = v,
+            0xFF48 => self.op0 = v,
+            0xFF49 => self.op1 = v,
+            0xFF4A => self.wy = v,
+            0xFF4B => self.wx = v,
+            0xFF4F => self.ram_bank = (v & 0x01) as usize,
+            0xFF68 => self.cbgpi.set(v),
+            0xFF69 => {
+                let r = self.cbgpi.i as usize >> 3;
+                let c = self.cbgpi.i as usize >> 1 & 0x03;
+                if self.cbgpi.i & 0x01 == 0x00 {
+                    self.cbgpd[r][c][0] = v & 0x1F;
+                    self.cbgpd[r][c][1] = (self.cbgpd[r][c][1] & 0x18) | (v >> 5);
+                } else {
+                    self.cbgpd[r][c][1] = (self.cbgpd[r][c][1] & 0x07) | ((v & 0x03) << 3);
+                    self.cbgpd[r][c][2] = (v >> 2) & 0x1F;
+                }
+                if self.cbgpi.auto_increment {
+                    self.cbgpi.i += 0x01;
+                    self.cbgpi.i &= 0x3F;
+                }
+            }
+            0xFF6A => self.cobpi.set(v),
+            0xFF6B => {
+                let r = self.cobpi.i as usize >> 3;
+                let c = self.cobpi.i as usize >> 1 & 0x03;
+                if self.cobpi.i & 0x01 == 0x00 {
+                    self.cobpd[r][c][0] = v & 0x1F;
+                    self.cobpd[r][c][1] = (self.cobpd[r][c][1] & 0x18) | (v >> 5);
+                } else {
+                    self.cobpd[r][c][1] = (self.cobpd[r][c][1] & 0x07) | ((v & 0x03) << 3);
+                    self.cobpd[r][c][2] = (v >> 2) & 0x1F;
+                }
+                if self.cobpi.auto_increment {
+                    self.cobpi.i += 0x01;
+                    self.cobpi.i &= 0x3F;
+                }
+            }
+            _ => panic!(""),
         }
-        0xFF41 => {
-            self.stat.ly_interrupt = v & 0x40 != 0x00;
-            self.stat.m2_interrupt = v & 0x20 != 0x00;
-            self.stat.m1_interrupt = v & 0x10 != 0x00;
-            self.stat.m0_interrupt = v & 0x08 != 0x00;
-        }
-        0xFF42 => self.sy = v,
-        0xFF43 => self.sx = v,
-        0xFF44 => {}
-        0xFF45 => self.lc = v,
-        0xFF47 => self.bgp = v,
-        0xFF48 => self.op0 = v,
-        0xFF49 => self.op1 = v,
-        0xFF4A => self.wy = v,
-        0xFF4B => self.wx = v,
-        0xFF4F => self.ram_bank = (v & 0x01) as usize,
-        0xFF68 => self.cbgpi.set(v),
-        0xFF69 => {
-            let r = self.cbgpi.i as usize >> 3;
-            let c = self.cbgpi.i as usize >> 1 & 0x03;
-            if self.cbgpi.i & 0x01 == 0x00 {
-                self.cbgpd[r][c][0] = v & 0x1F;
-                self.cbgpd[r][c][1] = (self.cbgpd[r][c][1] & 0x18) | (v >> 5);
-            } else {
-                self.cbgpd[r][c][1] = (self.cbgpd[r][c][1] & 0x07) | ((v & 0x03) << 3);
-                self.cbgpd[r][c][2] = (v >> 2) & 0x1F;
-            }
-            if self.cbgpi.auto_increment {
-                self.cbgpi.i += 0x01;
-                self.cbgpi.i &= 0x3F;
-            }
-        }
-        0xFF6A => self.cobpi.set(v),
-        0xFF6B => {
-            let r = self.cobpi.i as usize >> 3;
-            let c = self.cobpi.i as usize >> 1 & 0x03;
-            if self.cobpi.i & 0x01 == 0x00 {
-                self.cobpd[r][c][0] = v & 0x1F;
-                self.cobpd[r][c][1] = (self.cobpd[r][c][1] & 0x18) | (v >> 5);
-            } else {
-                self.cobpd[r][c][1] = (self.cobpd[r][c][1] & 0x07) | ((v & 0x03) << 3);
-                self.cobpd[r][c][2] = (v >> 2) & 0x1F;
-            }
-            if self.cobpi.auto_increment {
-                self.cobpi.i += 0x01;
-                self.cobpi.i &= 0x3F;
-            }
-        }
-        _ => panic!(""),
-        } 
     }
 }
