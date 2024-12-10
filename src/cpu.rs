@@ -182,7 +182,7 @@ impl Cpu {
         let a = self.reg.stack_pointer;
         let b = i16::from(self.imm() as i8) as u16;
         self.reg.set_flag(CarryFlag, (a & 0x00FF) + (b & 0x00FF) > 0x00FF);
-        self.reg.set_flag(HalfCarryFlag, (a & 0x000F) + (b & 0x000F) > 0x00FF);
+        self.reg.set_flag(HalfCarryFlag, (a & 0x000F) + (b & 0x000F) > 0x000F);
         self.reg.set_flag(SubtractionFlag, false);
         self.reg.set_flag(ZeroFlag, false);
         self.reg.stack_pointer = a.wrapping_add(b);

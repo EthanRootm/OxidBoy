@@ -115,12 +115,12 @@ fn main() {
             break;
         }
         let keys = vec![
-            (minifb::Key::Right, GBem::joypad::Key::Right),
-            (minifb::Key::Up, GBem::joypad::Key::Up),
-            (minifb::Key::Left, GBem::joypad::Key::Left),
-            (minifb::Key::Down, GBem::joypad::Key::Down),
-            (minifb::Key::Z, GBem::joypad::Key::A),
-            (minifb::Key::X, GBem::joypad::Key::B),
+            (minifb::Key::D, GBem::joypad::Key::Right),
+            (minifb::Key::W, GBem::joypad::Key::Up),
+            (minifb::Key::A, GBem::joypad::Key::Left),
+            (minifb::Key::S, GBem::joypad::Key::Down),
+            (minifb::Key::Right, GBem::joypad::Key::A),
+            (minifb::Key::Left, GBem::joypad::Key::B),
             (minifb::Key::Space, GBem::joypad::Key::Select),
             (minifb::Key::Enter, GBem::joypad::Key::Start),
         ];
