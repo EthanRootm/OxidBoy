@@ -1,12 +1,15 @@
+use sdl2::event::Event;
+use sdl2::keyboard::Keycode;
 // Note: Game BoyTM, Game Boy PocketTM, Super Game BoyTM and Game Boy ColorTM are registered trademarks of
 // Nintendo CO., LTD. © 1989 to 1999 by Nintendo CO., LTD.
 use GBem::gpu::{SCREEN_H, SCREEN_W};
 use GBem::motherboard::MotherBoard;
 use GBem::apu::Apu;
-use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
-use cpal::Sample;
+use sdl2::pixels::PixelFormatEnum;
+use GBem::render::update_with_buffer;
 
-fn main() {
+
+fn main() -> Result<(), String> {
 
     let mut rom = String::from("");
     let mut c_scale = 2;
@@ -25,14 +28,27 @@ fn main() {
     let mut mbrd = MotherBoard::power_up(rom);
     let rom_name = mbrd.mmu.borrow().cartridge.title();
 
-    let mut option = minifb::WindowOptions::default();
-    option.resize = true;
-    option.scale = minifb::Scale::X2;
-    let mut window =
-        minifb::Window::new(format!("Gameboy - {}", rom_name).as_str(), SCREEN_W, SCREEN_H, option).unwrap();
-    let mut window_buffer = vec![0x00; SCREEN_W * SCREEN_H];
-    window.update_with_buffer(window_buffer.as_slice(), SCREEN_W, SCREEN_H).unwrap();
+    let sdl_context = sdl2::init()?;
+    let video = sdl_context.video()?;
 
+    let window = video.window(format!("Gameboy - {}", rom_name).as_str(), (SCREEN_W as u32) * c_scale, (SCREEN_H as u32) * c_scale)
+    .position_centered()
+    .build()
+    .map_err(|e| e.to_string())?;
+
+    let mut canvas = window.into_canvas()
+    .present_vsync()
+    .build()
+    .map_err(|e| e.to_string())?;
+
+    let texture_creator = canvas.texture_creator();
+
+    let mut texture = texture_creator.create_texture_streaming(PixelFormatEnum::ABGR8888, SCREEN_W as u32, SCREEN_H as u32)
+    .map_err(|e| e.to_string())?;
+
+    let mut window_buffer = vec![0x00; SCREEN_W * SCREEN_H];
+
+    /*
     // Initialize audio related. It is necessary to ensure that the stream object remains alive.
     let stream: cpal::Stream;
         let host = cpal::default_host();
@@ -78,13 +94,22 @@ fn main() {
         };
         stream.play().unwrap();
     let _ = stream;
+    */
 
-    loop {
-        // Stop the program, if the GUI is closed by the user
-        if !window.is_open() {
-            break;
-        }
+    let keymap = vec![
+            (sdl2::keyboard::Keycode::D, GBem::joypad::Key::Right),
+            (sdl2::keyboard::Keycode::W, GBem::joypad::Key::Up),
+            (sdl2::keyboard::Keycode::A, GBem::joypad::Key::Left),
+            (sdl2::keyboard::Keycode::S, GBem::joypad::Key::Down),
+            (sdl2::keyboard::Keycode::RIGHT, GBem::joypad::Key::A),
+            (sdl2::keyboard::Keycode::LEFT, GBem::joypad::Key::B),
+            (sdl2::keyboard::Keycode::SPACE, GBem::joypad::Key::Select),
+            (sdl2::keyboard::Keycode::KP_ENTER, GBem::joypad::Key::Start),
+        ];
 
+    let mut event_pump = sdl_context.event_pump()?;
+    'running: loop 
+    {
         // Execute an instruction
         mbrd.next();
 
@@ -102,7 +127,7 @@ fn main() {
                     i += 1;
                 }
             }
-            window.update_with_buffer(window_buffer.as_slice(), SCREEN_W, SCREEN_H).unwrap();
+            update_with_buffer(&mut canvas, &mut texture, &window_buffer, SCREEN_W, SCREEN_H);
         }
         
 
@@ -111,27 +136,24 @@ fn main() {
         }
 
         // Handling keyboard events
-        if window.is_key_down(minifb::Key::Escape) {
-            break;
-        }
-        let keys = vec![
-            (minifb::Key::D, GBem::joypad::Key::Right),
-            (minifb::Key::W, GBem::joypad::Key::Up),
-            (minifb::Key::A, GBem::joypad::Key::Left),
-            (minifb::Key::S, GBem::joypad::Key::Down),
-            (minifb::Key::Right, GBem::joypad::Key::A),
-            (minifb::Key::Left, GBem::joypad::Key::B),
-            (minifb::Key::Space, GBem::joypad::Key::Select),
-            (minifb::Key::Enter, GBem::joypad::Key::Start),
-        ];
-        for (rk, vk) in &keys {
-            if window.is_key_down(*rk) {
-                mbrd.mmu.borrow_mut().joypad.keydown(vk.clone());
-            } else {
-                mbrd.mmu.borrow_mut().joypad.keyup(vk.clone());
+        for event in event_pump.poll_iter() {
+            match event {
+                Event::Quit { .. } | Event::KeyDown { keycode: Some(Keycode::Escape), .. } => break 'running,
+                Event::KeyDown { keycode: Some(key), .. } => {
+                    if let Some((_, gbkey)) = keymap.iter().find(|(k, _)| *k == key) {
+                        mbrd.mmu.borrow_mut().joypad.keydown(gbkey.clone());
+                    }
+                }
+                Event::KeyUp { keycode: Some(key), .. } => {
+                    if let Some((_, gbkey)) = keymap.iter().find(|(k, _)| *k == key) {
+                        mbrd.mmu.borrow_mut().joypad.keyup(gbkey.clone());
+                    }
+                }
+                _ => {}
             }
         }
     }
-
     mbrd.mmu.borrow_mut().cartridge.sav();
+    Ok(())
 }
+
