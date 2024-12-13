@@ -1,8 +1,8 @@
 use std::{env, fs, path::PathBuf};
 
 fn main(){
-    let sdl2_lib_dir = "SDL2/lib/x64";
-    let sdl2_dll_path = "SDL2/lib/x64/SDL2.dll";
+    let sdl2_lib_dir = "./";
+    let sdl2_dll_path = "./SDL2.dll";
 
     println!("cargo:rustc-link-search=native={}", sdl2_lib_dir);
     println!("cargo:rustc-link-lib=SDL2");
