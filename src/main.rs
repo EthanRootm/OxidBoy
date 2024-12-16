@@ -4,7 +4,6 @@ use sdl2::keyboard::Keycode;
 // Nintendo CO., LTD. © 1989 to 1999 by Nintendo CO., LTD.
 use GBem::gpu::{SCREEN_H, SCREEN_W};
 use GBem::motherboard::MotherBoard;
-use GBem::apu::Apu;
 use sdl2::pixels::PixelFormatEnum;
 use GBem::render::update_with_buffer;
 
@@ -12,11 +11,12 @@ use GBem::render::update_with_buffer;
 fn main() -> Result<(), String> {
 
     let mut rom = String::from("");
-    let mut c_scale = 2;
+    let mut _scale = 2;
+    // Sets up argument parser to get rom location
     {
         let mut ap = argparse::ArgumentParser::new();
         ap.set_description("Gameboy emulator");
-        ap.refer(&mut c_scale).add_option(
+        ap.refer(&mut _scale).add_option(
             &["-x", "--scale-factor"],
             argparse::Store,
             "Scale the video by a factor of 1, 2, 4, or 8",
@@ -25,13 +25,15 @@ fn main() -> Result<(), String> {
         ap.parse_args_or_exit();
     }
 
-    let mut mbrd = MotherBoard::power_up(rom);
-    let rom_name = mbrd.mmu.borrow().cartridge.title();
+    // Powers up the MotherBoard
+    let mut motherboard = MotherBoard::power_up(rom);
+    let rom_name = motherboard.mmu.borrow().cartridge.title();
 
+    // Creates sdl2 dependencys an unwraps them
     let sdl_context = sdl2::init()?;
     let video = sdl_context.video()?;
 
-    let window = video.window(format!("Gameboy - {}", rom_name).as_str(), (SCREEN_W as u32) * c_scale, (SCREEN_H as u32) * c_scale)
+    let window = video.window(format!("Gameboy - {}", rom_name).as_str(), (SCREEN_W as u32) * _scale, (SCREEN_H as u32) * _scale)
     .position_centered()
     .build()
     .map_err(|e| e.to_string())?;
@@ -59,7 +61,7 @@ fn main() -> Result<(), String> {
 
         let apu = Apu::power_up(config.sample_rate.0);
         let apu_data = apu.buffer.clone();
-        mbrd.mmu.borrow_mut().apu = apu;
+        motherboard.mmu.borrow_mut().apu = apu;
 
         stream = match sample_format {
             cpal::SampleFormat::F32 => device
@@ -101,22 +103,22 @@ fn main() -> Result<(), String> {
             (sdl2::keyboard::Keycode::W, GBem::joypad::Key::Up),
             (sdl2::keyboard::Keycode::A, GBem::joypad::Key::Left),
             (sdl2::keyboard::Keycode::S, GBem::joypad::Key::Down),
-            (sdl2::keyboard::Keycode::RIGHT, GBem::joypad::Key::A),
-            (sdl2::keyboard::Keycode::LEFT, GBem::joypad::Key::B),
-            (sdl2::keyboard::Keycode::SPACE, GBem::joypad::Key::Select),
-            (sdl2::keyboard::Keycode::KP_ENTER, GBem::joypad::Key::Start),
+            (sdl2::keyboard::Keycode::Up, GBem::joypad::Key::A),
+            (sdl2::keyboard::Keycode::Down, GBem::joypad::Key::B),
+            (sdl2::keyboard::Keycode::Left, GBem::joypad::Key::Select),
+            (sdl2::keyboard::Keycode::Right, GBem::joypad::Key::Start),
         ];
-
+    // Intialize the event punp for receiving input
     let mut event_pump = sdl_context.event_pump()?;
     'running: loop 
     {
-        // Execute an instruction
-        mbrd.next();
+        // Execute next instruction
+        motherboard.next();
 
         // Update the window
-        if mbrd.check_reset_gpu() {
+        if motherboard.check_reset_gpu() {
             let mut i: usize = 0;
-            for l in mbrd.mmu.borrow().gpu.data.iter() {
+            for l in motherboard.mmu.borrow().gpu.data.iter() {
                 for w in l.iter() {
                     let b = u32::from(w[0]) << 16;
                     let g = u32::from(w[1]) << 8;
@@ -127,33 +129,36 @@ fn main() -> Result<(), String> {
                     i += 1;
                 }
             }
-            update_with_buffer(&mut canvas, &mut texture, &window_buffer, SCREEN_W, SCREEN_H);
+            let _ = update_with_buffer(&mut canvas, &mut texture, &window_buffer, SCREEN_W);
         }
         
 
-        if !mbrd.cpu.flip() {
+        if !motherboard.cpu.flip() {
             continue;
         }
 
         // Handling keyboard events
         for event in event_pump.poll_iter() {
             match event {
+                // Breaks loop if escape is pressed or program is exited
                 Event::Quit { .. } | Event::KeyDown { keycode: Some(Keycode::Escape), .. } => break 'running,
+                // Uses keymap to use inputed key as a GB Button and set it in motherboard
                 Event::KeyDown { keycode: Some(key), .. } => {
                     if let Some((_, gbkey)) = keymap.iter().find(|(k, _)| *k == key) {
-                        mbrd.mmu.borrow_mut().joypad.keydown(gbkey.clone());
+                        motherboard.mmu.borrow_mut().joypad.keydown(gbkey.clone());
                     }
                 }
                 Event::KeyUp { keycode: Some(key), .. } => {
                     if let Some((_, gbkey)) = keymap.iter().find(|(k, _)| *k == key) {
-                        mbrd.mmu.borrow_mut().joypad.keyup(gbkey.clone());
+                        motherboard.mmu.borrow_mut().joypad.keyup(gbkey.clone());
                     }
                 }
                 _ => {}
             }
         }
     }
-    mbrd.mmu.borrow_mut().cartridge.sav();
+    // Save all data on application end
+    motherboard.mmu.borrow_mut().cartridge.sav();
     Ok(())
 }
 

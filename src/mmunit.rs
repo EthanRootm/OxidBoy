@@ -36,14 +36,17 @@ pub struct Mmunit {
 }
 
 impl Mmunit {
+    /// Intialize Memmory Management Unit
     pub fn power_up(path: impl AsRef<Path>) -> Self {
+        // Get Cartridge data and decide if its GB or GBC
         let cart = cartridge::power_up(path);
         let term = match cart.get(0x0143) & 0x80 {
             0x80 => Term::GBC,
             _ => Term::GB,
         };
+        
         let intf = Rc::new(RefCell::new(Intf::power_up()));
-        let mut r = Self {
+        let mut _return = Self {
             cartridge: cart,
             apu: Apu::power_up(48000),
             gpu: Gpu::power_up(term, intf.clone()),
@@ -60,42 +63,45 @@ impl Mmunit {
             wram: [0x00; 0x8000],
             wram_bank: 0x01,
         };
-        r.set(0xFF05, 0x00);
-        r.set(0xFF06, 0x00);
-        r.set(0xFF07, 0x00);
-        r.set(0xFF10, 0x80);
-        r.set(0xFF11, 0xBF);
-        r.set(0xFF12, 0xF3);
-        r.set(0xFF14, 0xBF);
-        r.set(0xFF16, 0x3F);
-        r.set(0xFF16, 0x3F);
-        r.set(0xFF17, 0x00);
-        r.set(0xFF19, 0xBF);
-        r.set(0xFF1A, 0x7F);
-        r.set(0xFF1B, 0xFF);
-        r.set(0xFF1C, 0x9F);
-        r.set(0xFF1E, 0xFF);
-        r.set(0xFF20, 0xFF);
-        r.set(0xFF21, 0x00);
-        r.set(0xFF22, 0x00);
-        r.set(0xFF23, 0xBF);
-        r.set(0xFF24, 0x77);
-        r.set(0xFF25, 0xF3);
-        r.set(0xFF26, 0xF1);
-        r.set(0xFF40, 0x91);
-        r.set(0xFF42, 0x00);
-        r.set(0xFF43, 0x00);
-        r.set(0xFF45, 0x00);
-        r.set(0xFF47, 0xFC);
-        r.set(0xFF48, 0xFF);
-        r.set(0xFF49, 0xFF);
-        r.set(0xFF4A, 0x00);
-        r.set(0xFF4B, 0x00);
-        r
+        // Intialize certain important adresses for start up
+        _return.set(0xFF05, 0x00);
+        _return.set(0xFF06, 0x00);
+        _return.set(0xFF07, 0x00);
+        _return.set(0xFF10, 0x80);
+        _return.set(0xFF11, 0xBF);
+        _return.set(0xFF12, 0xF3);
+        _return.set(0xFF14, 0xBF);
+        _return.set(0xFF16, 0x3F);
+        _return.set(0xFF16, 0x3F);
+        _return.set(0xFF17, 0x00);
+        _return.set(0xFF19, 0xBF);
+        _return.set(0xFF1A, 0x7F);
+        _return.set(0xFF1B, 0xFF);
+        _return.set(0xFF1C, 0x9F);
+        _return.set(0xFF1E, 0xFF);
+        _return.set(0xFF20, 0xFF);
+        _return.set(0xFF21, 0x00);
+        _return.set(0xFF22, 0x00);
+        _return.set(0xFF23, 0xBF);
+        _return.set(0xFF24, 0x77);
+        _return.set(0xFF25, 0xF3);
+        _return.set(0xFF26, 0xF1);
+        _return.set(0xFF40, 0x91);
+        _return.set(0xFF42, 0x00);
+        _return.set(0xFF43, 0x00);
+        _return.set(0xFF45, 0x00);
+        _return.set(0xFF47, 0xFC);
+        _return.set(0xFF48, 0xFF);
+        _return.set(0xFF49, 0xFF);
+        _return.set(0xFF4A, 0x00);
+        _return.set(0xFF4B, 0x00);
+        _return
     }
 }
 
 impl Mmunit {
+    /// Advances the program forward in memory
+    /// * Returns the cycles in memory
     pub fn next(&mut self, cycles: u32) -> u32 {
         let cpu_divider = self.speed as u32;
         let vram_cycles = self.run_dma();
@@ -107,6 +113,7 @@ impl Mmunit {
         gpu_cycles
     }
 
+    /// Switches speed based on shift switches from one speed to the other
     pub fn switch_speed(&mut self) {
         if self.shift {
             if self.speed == Speed::Double {
@@ -117,6 +124,7 @@ impl Mmunit {
         }
         self.shift = false;
     }
+
 
     fn run_dma(&mut self) -> u32 {
         if !self.hdma.active { return 0; }
@@ -157,6 +165,36 @@ impl Mmunit {
 }
 
 impl Memory for Mmunit {
+    // Start	End	Description	Notes
+    // 0000	3FFF	16 KiB ROM bank 00	From cartridge, usually a fixed bank
+    // 4000	7FFF	16 KiB ROM Bank 01–NN	From cartridge, switchable bank via mapper (if any)
+    // 8000	9FFF	8 KiB Video RAM (VRAM)	In CGB mode, switchable bank 0/1
+    // A000	BFFF	8 KiB External RAM	From cartridge, switchable bank if any
+    // C000	CFFF	4 KiB Work RAM (WRAM)	
+    // D000	DFFF	4 KiB Work RAM (WRAM)	In CGB mode, switchable bank 1–7
+    // E000	FDFF	Echo RAM (mirror of C000–DDFF)	Nintendo says use of this area is prohibited.
+    // FE00	FE9F	Object attribute memory (OAM)	
+    // FEA0	FEFF	Not Usable	Nintendo says use of this area is prohibited.
+    // FF00	FF7F	I/O Registers	
+    // FF80	FFFE	High RAM (HRAM)	
+    // FFFF	FFFF	Interrupt Enable register (IE)	
+
+    // I/O Ranges
+
+    // Start	End	First appeared	Purpose
+    // $FF00		    DMG	Joypad input
+    // $FF01	$FF02	DMG	Serial transfer
+    // $FF04	$FF07	DMG	Timer and divider
+    // $FF0F		    DMG	Interrupts
+    // $FF10	$FF26	DMG	Audio
+    // $FF30	$FF3F	DMG	Wave pattern
+    // $FF40	$FF4B	DMG	LCD Control, Status, Position, Scrolling, and Palettes
+    // $FF4F		    CGB	VRAM Bank Select
+    // $FF50		    DMG	Set to non-zero to disable boot ROM
+    // $FF51	$FF55	CGB	VRAM DMA
+    // $FF68	$FF6B	CGB	BG / OBJ Palettes
+    // $FF70		    CGB	WRAM Bank Select
+
     fn get(&self, a: u16) -> u8 {
         match a {
             0x0000..=0x7FFF => self.cartridge.get(a),

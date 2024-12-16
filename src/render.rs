@@ -1,4 +1,4 @@
-use bytemuck::cast_slice;
+
 use sdl2::{render::{Canvas, Texture}, video::Window};
 
 pub fn update_with_buffer(
@@ -6,7 +6,6 @@ pub fn update_with_buffer(
     texture: &mut Texture,
     window_buffer: &[u32],
     screen_w: usize,
-    screen_h: usize,
 ) -> Result<(), String> {
     texture.update(None,
         bytemuck::cast_slice(window_buffer),

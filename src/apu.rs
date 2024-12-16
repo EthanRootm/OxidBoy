@@ -2,7 +2,6 @@ use super::clock::Clock;
 use super::cpu;
 use super::mem::Memory;
 use blip_buf::BlipBuf;
-use core::str;
 use std::cell::RefCell;
 use std::rc::Rc;
 use std::sync::{Arc, Mutex};
