@@ -1,11 +1,12 @@
 use sdl2::event::Event;
 use sdl2::keyboard::Keycode;
-// Note: Game BoyTM, Game Boy PocketTM, Super Game BoyTM and Game Boy ColorTM are registered trademarks of
-// Nintendo CO., LTD. © 1989 to 1999 by Nintendo CO., LTD.
 use GBem::gpu::{SCREEN_H, SCREEN_W};
 use GBem::motherboard::MotherBoard;
+use GBem::apu::Apu;
+use cpal::Sample;
+use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
 use sdl2::pixels::PixelFormatEnum;
-use GBem::render::update_with_buffer;
+use GBem::sdl2::update_with_buffer;
 
 
 fn main() -> Result<(), String> {
@@ -29,7 +30,7 @@ fn main() -> Result<(), String> {
     let mut motherboard = MotherBoard::power_up(rom);
     let rom_name = motherboard.mmu.borrow().cartridge.title();
 
-    // Creates sdl2 dependencys an unwraps them
+    // Creates sdl2 dependencies and unwraps them
     let sdl_context = sdl2::init()?;
     let video = sdl_context.video()?;
 
@@ -45,12 +46,13 @@ fn main() -> Result<(), String> {
 
     let texture_creator = canvas.texture_creator();
 
-    let mut texture = texture_creator.create_texture_streaming(PixelFormatEnum::ABGR8888, SCREEN_W as u32, SCREEN_H as u32)
+    let mut texture = texture_creator.create_texture_streaming(PixelFormatEnum::ARGB8888, SCREEN_W as u32, SCREEN_H as u32)
     .map_err(|e| e.to_string())?;
 
     let mut window_buffer = vec![0x00; SCREEN_W * SCREEN_H];
 
-    /*
+
+
     // Initialize audio related. It is necessary to ensure that the stream object remains alive.
     let stream: cpal::Stream;
         let host = cpal::default_host();
@@ -96,7 +98,6 @@ fn main() -> Result<(), String> {
         };
         stream.play().unwrap();
     let _ = stream;
-    */
 
     let keymap = vec![
             (sdl2::keyboard::Keycode::D, GBem::joypad::Key::Right),
@@ -125,7 +126,7 @@ fn main() -> Result<(), String> {
                     let r = u32::from(w[2]);
                     let a = 0xff00_0000;
 
-                    window_buffer[i] = a | b | g | r;
+                    window_buffer[i] = a | r | g | b ;
                     i += 1;
                 }
             }

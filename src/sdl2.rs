@@ -1,6 +1,6 @@
-
 use sdl2::{render::{Canvas, Texture}, video::Window};
 
+// Render
 pub fn update_with_buffer(
     canvas: &mut Canvas<Window>,
     texture: &mut Texture,
