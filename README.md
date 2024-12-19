@@ -19,6 +19,7 @@ Run
 Extra Options
 ```text
   -s, --scale    Scale the Window
+  --example blargg Runs blargg's text roms
 ```
     
 ## Dependencies
