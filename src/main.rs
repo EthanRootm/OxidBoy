@@ -20,9 +20,9 @@ fn main() -> Result<(), String> {
         let mut ap = argparse::ArgumentParser::new();
         ap.set_description("Gameboy emulator");
         ap.refer(&mut _scale).add_option(
-            &["-x", "--scale-factor"],
+            &["-s", "--scale"],
             argparse::Store,
-            "Scale the video by a factor of 1, 2, 4, or 8",
+            "Scale the Window",
         );
         ap.refer(&mut rom).add_argument("rom", argparse::Store, "Rom name");
         ap.parse_args_or_exit();
@@ -104,14 +104,14 @@ fn main() -> Result<(), String> {
     let _ = stream;
 
     let keymap = vec![
-            (sdl2::keyboard::Keycode::D, OxidBoy::joypad::Key::Right),
-            (sdl2::keyboard::Keycode::W, OxidBoy::joypad::Key::Up),
-            (sdl2::keyboard::Keycode::A, OxidBoy::joypad::Key::Left),
-            (sdl2::keyboard::Keycode::S, OxidBoy::joypad::Key::Down),
-            (sdl2::keyboard::Keycode::Up, OxidBoy::joypad::Key::A),
-            (sdl2::keyboard::Keycode::Down, OxidBoy::joypad::Key::B),
-            (sdl2::keyboard::Keycode::Left, OxidBoy::joypad::Key::Select),
-            (sdl2::keyboard::Keycode::Right, OxidBoy::joypad::Key::Start),
+            (sdl2::keyboard::Keycode::Right, OxidBoy::joypad::Key::Right),
+            (sdl2::keyboard::Keycode::UP, OxidBoy::joypad::Key::Up),
+            (sdl2::keyboard::Keycode::Left, OxidBoy::joypad::Key::Left),
+            (sdl2::keyboard::Keycode::Down, OxidBoy::joypad::Key::Down),
+            (sdl2::keyboard::Keycode::Z, OxidBoy::joypad::Key::A),
+            (sdl2::keyboard::Keycode::X, OxidBoy::joypad::Key::B),
+            (sdl2::keyboard::Keycode::C, OxidBoy::joypad::Key::Select),
+            (sdl2::keyboard::Keycode::V, OxidBoy::joypad::Key::Start),
         ];
     // Intialize the event punp for receiving input
     let mut event_pump = sdl_context.event_pump()?;
