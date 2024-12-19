@@ -1,5 +1,7 @@
+use std::path::Path;
 use sdl2::event::Event;
 use sdl2::keyboard::Keycode;
+use sdl2::surface::Surface;
 use GBem::gpu::{SCREEN_H, SCREEN_W};
 use GBem::motherboard::MotherBoard;
 use GBem::apu::Apu;
@@ -34,10 +36,13 @@ fn main() -> Result<(), String> {
     let sdl_context = sdl2::init()?;
     let video = sdl_context.video()?;
 
-    let window = video.window(format!("Gameboy - {}", rom_name).as_str(), (SCREEN_W as u32) * _scale, (SCREEN_H as u32) * _scale)
+    let mut window = video.window(format!("OxidBoy - {}", rom_name).as_str(), (SCREEN_W as u32) * _scale, (SCREEN_H as u32) * _scale)
     .position_centered()
     .build()
     .map_err(|e| e.to_string())?;
+
+    let icon = Surface::load_bmp(Path::new("./assets/OBicon.bmp")).map_err(|e| e.to_string())?;
+    window.set_icon(icon);
 
     let mut canvas = window.into_canvas()
     .present_vsync()
@@ -50,7 +55,6 @@ fn main() -> Result<(), String> {
     .map_err(|e| e.to_string())?;
 
     let mut window_buffer = vec![0x00; SCREEN_W * SCREEN_H];
-
 
 
     // Initialize audio related. It is necessary to ensure that the stream object remains alive.
