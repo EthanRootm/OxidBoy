@@ -3,7 +3,7 @@
 version = 3
 
 [[package]]
-name = "Oxid"
+name = "OxidBoy"
 version = "0.1.0"
 dependencies = [
  "argparse",

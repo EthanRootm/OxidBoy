@@ -2,13 +2,13 @@ use std::path::Path;
 use sdl2::event::Event;
 use sdl2::keyboard::Keycode;
 use sdl2::surface::Surface;
-use GBem::gpu::{SCREEN_H, SCREEN_W};
-use GBem::motherboard::MotherBoard;
-use GBem::apu::Apu;
+use OxidBoy::gpu::{SCREEN_H, SCREEN_W};
+use OxidBoy::motherboard::MotherBoard;
+use OxidBoy::apu::Apu;
 use cpal::Sample;
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
 use sdl2::pixels::PixelFormatEnum;
-use GBem::sdl2::update_with_buffer;
+use OxidBoy::sdl2::update_with_buffer;
 
 
 fn main() -> Result<(), String> {
@@ -104,14 +104,14 @@ fn main() -> Result<(), String> {
     let _ = stream;
 
     let keymap = vec![
-            (sdl2::keyboard::Keycode::D, GBem::joypad::Key::Right),
-            (sdl2::keyboard::Keycode::W, GBem::joypad::Key::Up),
-            (sdl2::keyboard::Keycode::A, GBem::joypad::Key::Left),
-            (sdl2::keyboard::Keycode::S, GBem::joypad::Key::Down),
-            (sdl2::keyboard::Keycode::Up, GBem::joypad::Key::A),
-            (sdl2::keyboard::Keycode::Down, GBem::joypad::Key::B),
-            (sdl2::keyboard::Keycode::Left, GBem::joypad::Key::Select),
-            (sdl2::keyboard::Keycode::Right, GBem::joypad::Key::Start),
+            (sdl2::keyboard::Keycode::D, OxidBoy::joypad::Key::Right),
+            (sdl2::keyboard::Keycode::W, OxidBoy::joypad::Key::Up),
+            (sdl2::keyboard::Keycode::A, OxidBoy::joypad::Key::Left),
+            (sdl2::keyboard::Keycode::S, OxidBoy::joypad::Key::Down),
+            (sdl2::keyboard::Keycode::Up, OxidBoy::joypad::Key::A),
+            (sdl2::keyboard::Keycode::Down, OxidBoy::joypad::Key::B),
+            (sdl2::keyboard::Keycode::Left, OxidBoy::joypad::Key::Select),
+            (sdl2::keyboard::Keycode::Right, OxidBoy::joypad::Key::Start),
         ];
     // Intialize the event punp for receiving input
     let mut event_pump = sdl_context.event_pump()?;

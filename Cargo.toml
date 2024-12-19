@@ -1,5 +1,5 @@
 [package]
-name = "Oxid Boy"
+name = "OxidBoy"
 version = "0.1.0"
 edition = "2021"
 build = "build.rs"
