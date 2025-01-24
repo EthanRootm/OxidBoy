@@ -5,9 +5,9 @@ edition = "2021"
 
 [dependencies]
 argparse = "0.2"
-<<<<<<< Updated upstream
 cpal = "0.15"
 minifb = "0.25"
+<<<<<<< HEAD
 blip_buf = "0.1"
 =======
 blip_buf = "0.1"
@@ -34,3 +34,6 @@ features = ["ttf"]
 =======
 features = ["ttf"]
 >>>>>>> Stashed changes
+=======
+blip_buf = "0.1"
+>>>>>>> parent of ecdffd1 (adding pause functionallity)
