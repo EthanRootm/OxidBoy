@@ -5,6 +5,16 @@ edition = "2021"
 
 [dependencies]
 argparse = "0.2"
+<<<<<<< Updated upstream
 cpal = "0.15"
 minifb = "0.25"
 blip_buf = "0.1"
+=======
+blip_buf = "0.1"
+bytemuck = "1.20.0"
+cpal = "0.15.3"
+
+[dependencies.sdl2]
+version = "0.37.0"
+features = ["ttf"]
+>>>>>>> Stashed changes
