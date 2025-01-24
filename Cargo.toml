@@ -17,6 +17,10 @@ cpal = "0.15.3"
 [dependencies.sdl2]
 version = "0.37.0"
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
+features = ["ttf"]
+>>>>>>> Stashed changes
+=======
 features = ["ttf"]
 >>>>>>> Stashed changes
 =======
