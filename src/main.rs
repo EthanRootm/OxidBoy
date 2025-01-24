@@ -22,6 +22,9 @@ use OxidBoy::sdl2::{load_font, update_with_buffer};
 <<<<<<< Updated upstream
 <<<<<<< Updated upstream
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
+>>>>>>> Stashed changes
+=======
 >>>>>>> Stashed changes
 =======
 >>>>>>> Stashed changes
@@ -137,6 +140,7 @@ fn main() {
 <<<<<<< Updated upstream
 <<<<<<< Updated upstream
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
     loop {
         // Stop the program, if the GUI is closed by the user
         if !window.is_open() {
@@ -146,6 +150,8 @@ fn main() {
         // Execute an instruction
         mbrd.next();
 =======
+=======
+>>>>>>> Stashed changes
 =======
 >>>>>>> Stashed changes
 =======
@@ -191,7 +197,11 @@ fn main() {
 <<<<<<< Updated upstream
 <<<<<<< Updated upstream
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
             window.update_with_buffer(window_buffer.as_slice(), SCREEN_W, SCREEN_H).unwrap();
+=======
+            let _ = update_with_buffer(&mut canvas, &mut texture, &window_buffer, SCREEN_W, pause, &texture_creator, _scale, &ttf_context, font_path);
+>>>>>>> Stashed changes
 =======
             let _ = update_with_buffer(&mut canvas, &mut texture, &window_buffer, SCREEN_W, pause, &texture_creator, _scale, &ttf_context, font_path);
 >>>>>>> Stashed changes
