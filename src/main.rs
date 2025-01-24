@@ -19,6 +19,9 @@ use cpal::Sample;
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
 use sdl2::pixels::PixelFormatEnum;
 use OxidBoy::sdl2::{load_font, update_with_buffer};
+<<<<<<< Updated upstream
+>>>>>>> Stashed changes
+=======
 >>>>>>> Stashed changes
 
 fn main() {
@@ -125,6 +128,7 @@ fn main() {
     let _ = stream;
 
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
     loop {
         // Stop the program, if the GUI is closed by the user
         if !window.is_open() {
@@ -134,6 +138,8 @@ fn main() {
         // Execute an instruction
         mbrd.next();
 =======
+=======
+>>>>>>> Stashed changes
     //Change these Controls to what you want
     // TODO make this possible in the application
     let keymap = vec![
@@ -170,7 +176,11 @@ fn main() {
                 }
             }
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
             window.update_with_buffer(window_buffer.as_slice(), SCREEN_W, SCREEN_H).unwrap();
+=======
+            let _ = update_with_buffer(&mut canvas, &mut texture, &window_buffer, SCREEN_W, pause, &texture_creator, _scale, &ttf_context, font_path);
+>>>>>>> Stashed changes
 =======
             let _ = update_with_buffer(&mut canvas, &mut texture, &window_buffer, SCREEN_W, pause, &texture_creator, _scale, &ttf_context, font_path);
 >>>>>>> Stashed changes
