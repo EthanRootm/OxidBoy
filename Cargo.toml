@@ -9,4 +9,7 @@ argparse = "0.2"
 blip_buf = "0.1"
 bytemuck = "1.20.0"
 cpal = "0.15.3"
-sdl2 = "0.37.0"
+
+[dependencies.sdl2]
+version = "0.37.0"
+features = ["ttf"]

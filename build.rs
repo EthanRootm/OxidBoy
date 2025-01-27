@@ -3,6 +3,7 @@ use std::{env, fs, path::PathBuf};
 fn main(){
     let sdl2_lib_dir = "./";
     let sdl2_dll_path = "./SDL2.dll";
+    let sdl2ttf_dll_path = "./SDL2_ttf.dll";
 
     println!("cargo:rustc-link-search=native={}", sdl2_lib_dir);
     println!("cargo:rustc-link-lib=SDL2");
@@ -13,4 +14,5 @@ fn main(){
     fs::create_dir_all(&target_dir).unwrap();
     println!("target dir {}", target_dir.display());
     fs::copy(sdl2_dll_path, target_dir.join("SDL2.dll")).expect("Failed to copy dll to output directory");
+    fs::copy(sdl2ttf_dll_path, target_dir.join("SDL2_ttf.dll")).expect("Failed to copy dll to output directory");
 }

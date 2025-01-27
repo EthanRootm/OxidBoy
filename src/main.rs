@@ -2,13 +2,14 @@ use std::path::Path;
 use sdl2::event::Event;
 use sdl2::keyboard::Keycode;
 use sdl2::surface::Surface;
+
 use OxidBoy::gpu::{SCREEN_H, SCREEN_W};
 use OxidBoy::motherboard::MotherBoard;
 use OxidBoy::apu::Apu;
 use cpal::Sample;
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
 use sdl2::pixels::PixelFormatEnum;
-use OxidBoy::sdl2::update_with_buffer;
+use OxidBoy::sdl2::{load_font, update_with_buffer};
 
 
 fn main() -> Result<(), String> {
@@ -34,6 +35,10 @@ fn main() -> Result<(), String> {
 
     // Creates sdl2 dependencies and unwraps them
     let sdl_context = sdl2::init()?;
+    /*
+    let ttf_context = sdl2::ttf::init(). map_err(|e| e.to_string())?;
+    let font_path: &Path = Path::new(&"./assets/font/Font.ttf");
+    */
     let video = sdl_context.video()?;
 
     let mut window = video.window(format!("OxidBoy - {}", rom_name).as_str(), (SCREEN_W as u32) * _scale, (SCREEN_H as u32) * _scale)
@@ -115,6 +120,7 @@ fn main() -> Result<(), String> {
         ];
     // Intialize the event punp for receiving input
     let mut event_pump = sdl_context.event_pump()?;
+    let mut pause = false;
     'running: loop 
     {
         // Execute next instruction
@@ -134,7 +140,7 @@ fn main() -> Result<(), String> {
                     i += 1;
                 }
             }
-            let _ = update_with_buffer(&mut canvas, &mut texture, &window_buffer, SCREEN_W);
+            let _ = update_with_buffer(&mut canvas, &mut texture, &window_buffer, pause, &texture_creator, _scale);
         }
         
 
@@ -146,7 +152,11 @@ fn main() -> Result<(), String> {
         for event in event_pump.poll_iter() {
             match event {
                 // Breaks loop if escape is pressed or program is exited
-                Event::Quit { .. } | Event::KeyDown { keycode: Some(Keycode::Escape), .. } => break 'running,
+                Event::Quit { .. } => break 'running,
+                //Pauses the game (Not fully implimented)
+                Event::KeyDown { keycode: Some(Keycode::Escape), .. } => {
+                    pause = !pause; 
+                }
                 // Uses keymap to use inputed key as a GB Button and set it in motherboard
                 Event::KeyDown { keycode: Some(key), .. } => {
                     if let Some((_, gbkey)) = keymap.iter().find(|(k, _)| *k == key) {
