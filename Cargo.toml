@@ -1,39 +1,15 @@
 [package]
-name = "GBem"
+name = "OxidBoy"
 version = "0.1.0"
 edition = "2021"
+build = "build.rs"
 
 [dependencies]
 argparse = "0.2"
-cpal = "0.15"
-minifb = "0.25"
-<<<<<<< HEAD
-blip_buf = "0.1"
-=======
 blip_buf = "0.1"
 bytemuck = "1.20.0"
 cpal = "0.15.3"
 
 [dependencies.sdl2]
 version = "0.37.0"
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
 features = ["ttf"]
->>>>>>> Stashed changes
-=======
-features = ["ttf"]
->>>>>>> Stashed changes
-=======
-features = ["ttf"]
->>>>>>> Stashed changes
-=======
-features = ["ttf"]
->>>>>>> Stashed changes
-=======
-features = ["ttf"]
->>>>>>> Stashed changes
-=======
-blip_buf = "0.1"
->>>>>>> parent of ecdffd1 (adding pause functionallity)
