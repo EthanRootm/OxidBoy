@@ -9,7 +9,7 @@ use OxidBoy::apu::Apu;
 use cpal::Sample;
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
 use sdl2::pixels::PixelFormatEnum;
-use OxidBoy::sdl2::{load_font, update_with_buffer};
+use OxidBoy::sdl2::{render_pause, update_with_buffer};
 
 
 fn main() -> Result<(), String> {
@@ -35,10 +35,6 @@ fn main() -> Result<(), String> {
 
     // Creates sdl2 dependencies and unwraps them
     let sdl_context = sdl2::init()?;
-    /*
-    let ttf_context = sdl2::ttf::init(). map_err(|e| e.to_string())?;
-    let font_path: &Path = Path::new(&"./assets/font/Font.ttf");
-    */
     let video = sdl_context.video()?;
 
     let mut window = video.window(format!("OxidBoy - {}", rom_name).as_str(), (SCREEN_W as u32) * _scale, (SCREEN_H as u32) * _scale)
@@ -124,6 +120,7 @@ fn main() -> Result<(), String> {
     'running: loop 
     {
         // Execute next instruction
+        if !pause{
         motherboard.next();
 
         // Update the window
@@ -140,13 +137,16 @@ fn main() -> Result<(), String> {
                     i += 1;
                 }
             }
-            let _ = update_with_buffer(&mut canvas, &mut texture, &window_buffer, pause, &texture_creator, _scale);
+            let _ = update_with_buffer(&mut canvas, &mut texture, &window_buffer);
         }
         
 
         if !motherboard.cpu.flip() {
             continue;
         }
+    } else {
+        let _ = render_pause(&mut canvas, &texture_creator, _scale);
+    }
 
         // Handling keyboard events
         for event in event_pump.poll_iter() {
