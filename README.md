@@ -1,7 +1,7 @@
 
 ![Logo](./assets/logo.png)
 
-OxidBoy is a GameBoy/ GameBoy Color emulator written in pure rust using SDL2 libraries. This is mostly a research project that I will most likely continue to work on, but I have other projects to do.
+OxidBoy is a GameBoy/ GameBoy Color emulator written in pure rust using SDL2 libraries. This is mostly a research project that I will most likely continue to work on.
 
 
 ## Usage
@@ -14,12 +14,12 @@ Install OxidBoy
 ```
 Run
 ```bash
-  cargo run -- release -- "your/rom/here"
+  cargo run -- release your/rom/here
 ```
 Extra Options
 ```text
-  -s, --scale    Scale the Window
-  --example blargg Runs blargg's text roms
+  -s, --scale       Scale the Window
+  --example blargg  Runs blargg's text roms
 ```
     
 ## Dependencies

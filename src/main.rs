@@ -121,6 +121,7 @@ fn main() -> Result<(), String> {
     {
         // Execute next instruction
         if !pause{
+        stream.play().unwrap();
         motherboard.next();
 
         // Update the window
@@ -145,7 +146,14 @@ fn main() -> Result<(), String> {
             continue;
         }
     } else {
-        let _ = render_pause(&mut canvas, &texture_creator, _scale);
+        stream.pause().unwrap();
+        match render_pause(&mut canvas, &texture_creator, _scale, &mut event_pump) {
+            Ok(1) => break 'running,
+            Ok(2) => { pause = !pause;}
+            Ok(0) => {},
+            Err(e) => eprintln!("{}", e),
+            _ => {}
+        }
     }
 
         // Handling keyboard events
@@ -153,7 +161,7 @@ fn main() -> Result<(), String> {
             match event {
                 // Breaks loop if escape is pressed or program is exited
                 Event::Quit { .. } => break 'running,
-                //Pauses the game (Not fully implimented)
+                // Pauses the game
                 Event::KeyDown { keycode: Some(Keycode::Escape), .. } => {
                     pause = !pause; 
                 }
