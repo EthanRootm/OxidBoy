@@ -14,7 +14,7 @@ Install OxidBoy
 ```
 Run
 ```bash
-  cargo run -- release your/rom/here
+  cargo run --release your/rom/here
 ```
 Extra Options
 ```text
