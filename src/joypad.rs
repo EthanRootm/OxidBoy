@@ -4,7 +4,7 @@ use std::cell::RefCell;
 use std::rc::Rc;
 
 #[rustfmt::skip]
-#[derive(Clone)]
+#[derive(Clone,PartialEq)]
 pub enum Key {
     Right = 0b0000_0001,
     Left = 0b0000_0010,

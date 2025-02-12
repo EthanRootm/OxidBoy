@@ -9,15 +9,16 @@ use OxidBoy::apu::Apu;
 use cpal::Sample;
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
 use sdl2::pixels::PixelFormatEnum;
-use OxidBoy::sdl2::{render_pause, update_with_buffer};
+use OxidBoy::sdl2::{load_font, render_pause, update_with_buffer};
+use OxidBoy::sdl2::{Settings, SettingScreen};
 
 
 fn main() -> Result<(), String> {
 
-    let mut rom = String::from("");
+    let mut rom = String::from("./Roms/red.gb");
     let mut _scale = 2;
     // Sets up argument parser to get rom location
-    {
+    /*{
         let mut ap = argparse::ArgumentParser::new();
         ap.set_description("Gameboy emulator");
         ap.refer(&mut _scale).add_option(
@@ -28,7 +29,7 @@ fn main() -> Result<(), String> {
         ap.refer(&mut rom).add_argument("rom", argparse::Store, "Rom name");
         ap.parse_args_or_exit();
     }
-
+*/
     // Powers up the MotherBoard
     let mut motherboard = MotherBoard::power_up(rom);
     let rom_name = motherboard.mmu.borrow().cartridge.title();
@@ -56,6 +57,7 @@ fn main() -> Result<(), String> {
     .map_err(|e| e.to_string())?;
 
     let mut window_buffer = vec![0x00; SCREEN_W * SCREEN_H];
+    let ttf_context = sdl2::ttf::init().unwrap();
 
 
     // Initialize audio related. It is necessary to ensure that the stream object remains alive.
@@ -104,16 +106,17 @@ fn main() -> Result<(), String> {
         stream.play().unwrap();
     let _ = stream;
 
-    let keymap = vec![
-            (sdl2::keyboard::Keycode::Right, OxidBoy::joypad::Key::Right),
-            (sdl2::keyboard::Keycode::UP, OxidBoy::joypad::Key::Up),
-            (sdl2::keyboard::Keycode::Left, OxidBoy::joypad::Key::Left),
-            (sdl2::keyboard::Keycode::Down, OxidBoy::joypad::Key::Down),
-            (sdl2::keyboard::Keycode::Z, OxidBoy::joypad::Key::A),
-            (sdl2::keyboard::Keycode::X, OxidBoy::joypad::Key::B),
-            (sdl2::keyboard::Keycode::C, OxidBoy::joypad::Key::Select),
-            (sdl2::keyboard::Keycode::V, OxidBoy::joypad::Key::Start),
-        ];
+    let settings = Settings::set_control(vec![
+        (sdl2::keyboard::Keycode::Right, OxidBoy::joypad::Key::Right),
+        (sdl2::keyboard::Keycode::UP, OxidBoy::joypad::Key::Up),
+        (sdl2::keyboard::Keycode::Left, OxidBoy::joypad::Key::Left),
+        (sdl2::keyboard::Keycode::Down, OxidBoy::joypad::Key::Down),
+        (sdl2::keyboard::Keycode::Z, OxidBoy::joypad::Key::A),
+        (sdl2::keyboard::Keycode::X, OxidBoy::joypad::Key::B),
+        (sdl2::keyboard::Keycode::C, OxidBoy::joypad::Key::Select),
+        (sdl2::keyboard::Keycode::V, OxidBoy::joypad::Key::Start),
+    ]);
+    let mut settingScreen = SettingScreen::power_up(settings, &ttf_context);
     // Intialize the event punp for receiving input
     let mut event_pump = sdl_context.event_pump()?;
     let mut pause = false;
@@ -147,9 +150,19 @@ fn main() -> Result<(), String> {
         }
     } else {
         stream.pause().unwrap();
-        match render_pause(&mut canvas, &texture_creator, _scale, &mut event_pump) {
+        match render_pause(&mut canvas, &texture_creator, _scale, &mut event_pump, &ttf_context ) {
             Ok(1) => break 'running,
-            Ok(2) => { pause = !pause;}
+            Ok(2) => { 
+                loop {
+                    settingScreen.render_settings(&mut canvas, _scale);
+                    if settingScreen.handle_events(&mut event_pump) {
+                        settingScreen.await_key(&mut canvas , &mut event_pump);
+                    } else {
+                        break;
+                    }
+                }
+            }
+            Ok(3) => { pause = !pause;}
             Ok(0) => {},
             Err(e) => eprintln!("{}", e),
             _ => {}
@@ -167,12 +180,12 @@ fn main() -> Result<(), String> {
                 }
                 // Uses keymap to use inputed key as a GB Button and set it in motherboard
                 Event::KeyDown { keycode: Some(key), .. } => {
-                    if let Some((_, gbkey)) = keymap.iter().find(|(k, _)| *k == key) {
+                    if let Some((_, gbkey)) = settingScreen.settings.controls.iter().find(|(k, _)| *k == key) {
                         motherboard.mmu.borrow_mut().joypad.keydown(gbkey.clone());
                     }
                 }
                 Event::KeyUp { keycode: Some(key), .. } => {
-                    if let Some((_, gbkey)) = keymap.iter().find(|(k, _)| *k == key) {
+                    if let Some((_, gbkey)) = settingScreen.settings.controls.iter().find(|(k, _)| *k == key) {
                         motherboard.mmu.borrow_mut().joypad.keyup(gbkey.clone());
                     }
                 }
